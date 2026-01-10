@@ -93,11 +93,11 @@
         <div class="sidebar-footer">
             <a href="/profile" class="user-menu">
                 <div class="user-avatar">
-                    <?= strtoupper(substr($_SESSION['user']['first_name'], 0, 1) . substr($_SESSION['user']['last_name'], 0, 1)) ?>
+                    <?= strtoupper(substr($_SESSION['user']['first_name'] ?? '', 0, 1) . substr($_SESSION['user']['last_name'] ?? '', 0, 1)) ?>
                 </div>
                 <div class="user-info">
-                    <span class="user-name"><?= sanitize($_SESSION['user']['first_name'] . ' ' . $_SESSION['user']['last_name']) ?></span>
-                    <span class="user-role"><?= ucfirst($_SESSION['user']['role']) ?></span>
+                    <span class="user-name"><?= htmlspecialchars(($_SESSION['user']['first_name'] ?? '') . ' ' . ($_SESSION['user']['last_name'] ?? '')) ?></span>
+                    <span class="user-role"><?= __('nav_profile') ?></span>
                 </div>
             </a>
             <a href="/logout" class="logout-btn" title="<?= __('nav_logout') ?>">
@@ -113,34 +113,30 @@
     <!-- Main Content -->
     <main class="main-content">
         <!-- Header -->
-        <header class="header">
-            <button class="mobile-menu-btn" onclick="toggleSidebarMobile()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="3" y1="12" x2="21" y2="12"/>
-                    <line x1="3" y1="6" x2="21" y2="6"/>
-                    <line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-            </button>
-            
-            <div class="header-search">
+        <header class="main-header">
+            <div class="header-left">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                
                 <form action="/search" method="GET" class="search-form">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="8"/>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                     </svg>
-                    <input type="text" name="q" placeholder="<?= __('search_documents') ?>" autocomplete="off">
+                    <input type="text" name="q" placeholder="<?= __('search_documents') ?>" value="<?= htmlspecialchars($_GET['q'] ?? '') ?>">
                 </form>
             </div>
             
-            <div class="header-actions">
+            <div class="header-right">
                 <!-- Sélecteur de langue -->
                 <div class="lang-dropdown">
                     <button class="lang-btn" onclick="toggleLangMenu()">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="2" y1="12" x2="22" y2="12"/>
-                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                        </svg>
+                        <span><?= currentLang() === 'fr' ? '🇫🇷' : '🇬🇧' ?></span>
                         <span><?= currentLang() === 'fr' ? 'FR' : 'EN' ?></span>
                     </button>
                     <div class="lang-menu" id="langMenu">
@@ -234,10 +230,8 @@
     
     <script src="/js/app.js"></script>
     
-    <?php // Script de sync temps réel pour les pages documents ?>
-    <?php if (preg_match('/\/documents\/\d+/', $_SERVER['REQUEST_URI'])): ?>
-    <script src="/js/document-sync.js"></script>
-    <?php endif; ?>
+    <!-- NOTE: Le script document-sync.js n'est plus nécessaire ici -->
+    <!-- La synchronisation temps réel est maintenant intégrée directement dans show.php -->
     
     <script>
     // Toggle menu langue

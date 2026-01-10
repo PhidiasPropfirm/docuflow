@@ -1,26 +1,11 @@
 <?php
 namespace App\Controllers;
 
-use App\Models\Document;
-use App\Models\Zone;
-use App\Models\Annotation;
-use App\Models\DocumentLink;
-
 /**
  * Contrôleur API pour les mises à jour en temps réel des documents
+ * Fichier: htdocs/src/Controllers/DocumentSyncController.php
  */
 class DocumentSyncController {
-    private Document $documentModel;
-    private Zone $zoneModel;
-    private Annotation $annotationModel;
-    private DocumentLink $linkModel;
-    
-    public function __construct() {
-        $this->documentModel = new Document();
-        $this->zoneModel = new Zone();
-        $this->annotationModel = new Annotation();
-        $this->linkModel = new DocumentLink();
-    }
     
     /**
      * Récupère les mises à jour d'un document depuis un timestamp
@@ -41,105 +26,130 @@ class DocumentSyncController {
         try {
             $db = db();
             
-            // Récupérer les zones modifiées/créées (table = document_zones)
+            // Récupérer les zones créées après le timestamp
+            // Note: on utilise les vrais noms de colonnes de la table document_zones
             $stmt = $db->prepare("
-                SELECT z.*, u.first_name, u.last_name 
+                SELECT z.id, z.document_id, z.page_number, z.x, z.y, z.width, z.height,
+                       z.label, z.zone_type, z.color, z.description, z.extracted_text,
+                       z.created_at, z.created_by,
+                       u.first_name, u.last_name 
                 FROM document_zones z
                 LEFT JOIN users u ON u.id = z.created_by
                 WHERE z.document_id = ? 
-                AND (z.created_at > ? OR z.updated_at > ?)
+                AND z.created_at > ?
                 ORDER BY z.created_at DESC
             ");
-            $stmt->execute([$documentId, $since, $since]);
-            $zones = $stmt->fetchAll();
+            $stmt->execute([$documentId, $since]);
+            $zones = $stmt->fetchAll(\PDO::FETCH_ASSOC);
             
-            // Récupérer les annotations modifiées/créées
+            // Récupérer les annotations créées après le timestamp
             $stmt = $db->prepare("
-                SELECT a.*, u.first_name, u.last_name,
-                       z.name as zone_name
+                SELECT a.id, a.document_id, a.zone_id, a.content, a.annotation_type,
+                       a.is_resolved, a.created_at,
+                       u.first_name, u.last_name
                 FROM annotations a
-                JOIN document_zones z ON z.id = a.zone_id
                 LEFT JOIN users u ON u.id = a.user_id
-                WHERE z.document_id = ?
+                WHERE a.document_id = ?
                 AND a.created_at > ?
                 ORDER BY a.created_at DESC
             ");
             $stmt->execute([$documentId, $since]);
-            $annotations = $stmt->fetchAll();
+            $annotations = $stmt->fetchAll(\PDO::FETCH_ASSOC);
             
-            // Récupérer les liaisons modifiées/créées
-            $stmt = $db->prepare("
-                SELECT dl.*, 
-                       d1.title as source_title, d2.title as target_title,
-                       z1.name as source_zone_name, z2.name as target_zone_name
-                FROM document_links dl
-                JOIN document_zones z1 ON z1.id = dl.source_zone_id
-                JOIN document_zones z2 ON z2.id = dl.target_zone_id
-                JOIN documents d1 ON d1.id = z1.document_id
-                JOIN documents d2 ON d2.id = z2.document_id
-                WHERE (z1.document_id = ? OR z2.document_id = ?)
-                AND dl.created_at > ?
-                ORDER BY dl.created_at DESC
-            ");
-            $stmt->execute([$documentId, $documentId, $since]);
-            $links = $stmt->fetchAll();
+            // Récupérer les liaisons créées après le timestamp
+            $links = [];
+            try {
+                $stmt = $db->prepare("
+                    SELECT dl.id, dl.source_zone_id, dl.target_document_id, dl.target_zone_id,
+                           dl.link_type, dl.description, dl.created_at,
+                           d.title as target_doc_title
+                    FROM document_links dl
+                    JOIN documents d ON d.id = dl.target_document_id
+                    JOIN document_zones z ON z.id = dl.source_zone_id
+                    WHERE z.document_id = ?
+                    AND dl.created_at > ?
+                    ORDER BY dl.created_at DESC
+                ");
+                $stmt->execute([$documentId, $since]);
+                $links = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            } catch (\Exception $e) {
+                // Table peut ne pas exister, ignorer
+            }
             
-            // Récupérer les zones supprimées (si on a une table de log)
-            $deletedZones = [];
+            // Timestamp MySQL actuel pour la prochaine requête (éviter décalage timezone)
+            $stmt = $db->query("SELECT NOW() as now");
+            $newTimestamp = $stmt->fetch()['now'];
             
-            // Timestamp actuel pour la prochaine requête
-            $newSince = date('Y-m-d H:i:s');
+            // Formater les zones pour le JavaScript
+            $formattedZones = array_map(function($z) {
+                return [
+                    'id' => (int)$z['id'],
+                    'document_id' => (int)$z['document_id'],
+                    'page_number' => (int)$z['page_number'],
+                    'x' => (float)$z['x'],
+                    'y' => (float)$z['y'],
+                    'width' => (float)$z['width'],
+                    'height' => (float)$z['height'],
+                    'label' => $z['label'] ?? '',
+                    'zone_type' => $z['zone_type'] ?? 'custom',
+                    'color' => $z['color'] ?? '#10B981',
+                    'description' => $z['description'] ?? '',
+                    'extracted_text' => $z['extracted_text'] ?? '',
+                    'created_by' => trim(($z['first_name'] ?? '') . ' ' . ($z['last_name'] ?? '')),
+                    'created_at' => $z['created_at']
+                ];
+            }, $zones);
+            
+            // Formater les annotations
+            $formattedAnnotations = array_map(function($a) {
+                return [
+                    'id' => (int)$a['id'],
+                    'document_id' => (int)$a['document_id'],
+                    'zone_id' => $a['zone_id'] ? (int)$a['zone_id'] : null,
+                    'content' => $a['content'] ?? '',
+                    'annotation_type' => $a['annotation_type'] ?? 'note',
+                    'is_resolved' => (bool)($a['is_resolved'] ?? false),
+                    'user_name' => trim(($a['first_name'] ?? '') . ' ' . ($a['last_name'] ?? '')),
+                    'created_at' => $a['created_at']
+                ];
+            }, $annotations);
+            
+            // Formater les liaisons
+            $formattedLinks = array_map(function($l) {
+                return [
+                    'id' => (int)$l['id'],
+                    'source_zone_id' => (int)$l['source_zone_id'],
+                    'target_document_id' => (int)$l['target_document_id'],
+                    'target_zone_id' => $l['target_zone_id'] ? (int)$l['target_zone_id'] : null,
+                    'link_type' => $l['link_type'] ?? 'reference',
+                    'target_doc_title' => $l['target_doc_title'] ?? '',
+                    'created_at' => $l['created_at']
+                ];
+            }, $links);
+            
+            $hasUpdates = !empty($zones) || !empty($annotations) || !empty($links);
             
             echo json_encode([
                 'success' => true,
-                'timestamp' => $newSince,
+                'timestamp' => $newTimestamp,
+                'has_updates' => $hasUpdates,
                 'updates' => [
-                    'zones' => array_map(function($z) {
-                        return [
-                            'id' => (int)$z['id'],
-                            'name' => $z['name'],
-                            'x' => (float)$z['x'],
-                            'y' => (float)$z['y'],
-                            'width' => (float)$z['width'],
-                            'height' => (float)$z['height'],
-                            'page' => (int)$z['page'],
-                            'color' => $z['color'],
-                            'type' => $z['type'],
-                            'tooltip' => $z['tooltip'],
-                            'created_by' => $z['first_name'] . ' ' . $z['last_name'],
-                            'created_at' => $z['created_at']
-                        ];
-                    }, $zones),
-                    'annotations' => array_map(function($a) {
-                        return [
-                            'id' => (int)$a['id'],
-                            'zone_id' => (int)$a['zone_id'],
-                            'zone_name' => $a['zone_name'],
-                            'content' => $a['content'],
-                            'user_name' => $a['first_name'] . ' ' . $a['last_name'],
-                            'created_at' => $a['created_at']
-                        ];
-                    }, $annotations),
-                    'links' => array_map(function($l) {
-                        return [
-                            'id' => (int)$l['id'],
-                            'source_zone_id' => (int)$l['source_zone_id'],
-                            'target_zone_id' => (int)$l['target_zone_id'],
-                            'source_title' => $l['source_title'],
-                            'target_title' => $l['target_title'],
-                            'source_zone_name' => $l['source_zone_name'],
-                            'target_zone_name' => $l['target_zone_name'],
-                            'created_at' => $l['created_at']
-                        ];
-                    }, $links),
-                    'deleted_zones' => $deletedZones
-                ],
-                'has_updates' => !empty($zones) || !empty($annotations) || !empty($links)
+                    'zones' => $formattedZones,
+                    'annotations' => $formattedAnnotations,
+                    'links' => $formattedLinks
+                ]
             ]);
             
         } catch (\Exception $e) {
             http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            // En cas d'erreur, retourner un timestamp qui ne bloquera pas les futures requêtes
+            echo json_encode([
+                'success' => false, 
+                'error' => $e->getMessage(),
+                'timestamp' => $since, // Garder le même timestamp pour réessayer
+                'has_updates' => false,
+                'updates' => ['zones' => [], 'annotations' => [], 'links' => []]
+            ]);
         }
     }
     
@@ -160,6 +170,7 @@ class DocumentSyncController {
         
         try {
             $db = db();
+            $currentUserId = currentUserId();
             
             // Mettre à jour notre présence
             $stmt = $db->prepare("
@@ -167,35 +178,45 @@ class DocumentSyncController {
                 VALUES (?, ?, NOW())
                 ON DUPLICATE KEY UPDATE last_seen = NOW()
             ");
-            $stmt->execute([$documentId, currentUserId()]);
+            $stmt->execute([$documentId, $currentUserId]);
             
             // Récupérer les viewers actifs (vus dans les 30 dernières secondes)
             $stmt = $db->prepare("
-                SELECT dv.*, u.first_name, u.last_name
+                SELECT dv.user_id, u.first_name, u.last_name, dv.last_seen
                 FROM document_viewers dv
                 JOIN users u ON u.id = dv.user_id
                 WHERE dv.document_id = ?
                 AND dv.last_seen > DATE_SUB(NOW(), INTERVAL 30 SECOND)
-                ORDER BY u.first_name
+                ORDER BY dv.last_seen DESC
             ");
             $stmt->execute([$documentId]);
-            $viewers = $stmt->fetchAll();
+            $viewers = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            
+            // Formater les viewers
+            $formattedViewers = array_map(function($v) use ($currentUserId) {
+                $firstName = $v['first_name'] ?? '';
+                $lastName = $v['last_name'] ?? '';
+                $initials = strtoupper(
+                    substr($firstName, 0, 1) . substr($lastName, 0, 1)
+                );
+                
+                return [
+                    'user_id' => (int)$v['user_id'],
+                    'name' => trim($firstName . ' ' . $lastName),
+                    'initials' => $initials ?: '?',
+                    'is_me' => (int)$v['user_id'] === $currentUserId,
+                    'last_seen' => $v['last_seen']
+                ];
+            }, $viewers);
             
             echo json_encode([
                 'success' => true,
-                'viewers' => array_map(function($v) {
-                    return [
-                        'id' => (int)$v['user_id'],
-                        'name' => $v['first_name'] . ' ' . $v['last_name'],
-                        'initials' => strtoupper(substr($v['first_name'], 0, 1) . substr($v['last_name'], 0, 1)),
-                        'is_me' => (int)$v['user_id'] === currentUserId()
-                    ];
-                }, $viewers),
-                'count' => count($viewers)
+                'viewers' => $formattedViewers,
+                'count' => count($formattedViewers)
             ]);
             
         } catch (\Exception $e) {
-            // Table n'existe peut-être pas encore
+            // Si la table n'existe pas, retourner une liste vide
             echo json_encode([
                 'success' => true,
                 'viewers' => [],
@@ -205,26 +226,39 @@ class DocumentSyncController {
     }
     
     /**
-     * Quitter le document (cleanup)
+     * Signale qu'un utilisateur quitte le document
      */
     public function leaveDocument(): void {
-        AuthController::requireAuth();
-        
         header('Content-Type: application/json');
         
-        $input = json_decode(file_get_contents('php://input'), true);
-        $documentId = (int)($input['document_id'] ?? 0);
+        // Lire les données POST (peut être JSON ou form-data)
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
         
-        if ($documentId) {
-            try {
-                $db = db();
-                $stmt = $db->prepare("DELETE FROM document_viewers WHERE document_id = ? AND user_id = ?");
-                $stmt->execute([$documentId, currentUserId()]);
-            } catch (\Exception $e) {
-                // Ignorer les erreurs
-            }
+        $documentId = (int)($data['document_id'] ?? $_POST['document_id'] ?? 0);
+        
+        if (!$documentId) {
+            echo json_encode(['success' => false, 'error' => 'Document ID requis']);
+            return;
         }
         
-        echo json_encode(['success' => true]);
+        try {
+            $db = db();
+            $currentUserId = currentUserId();
+            
+            if ($currentUserId) {
+                // Supprimer l'entrée du viewer
+                $stmt = $db->prepare("
+                    DELETE FROM document_viewers 
+                    WHERE document_id = ? AND user_id = ?
+                ");
+                $stmt->execute([$documentId, $currentUserId]);
+            }
+            
+            echo json_encode(['success' => true]);
+            
+        } catch (\Exception $e) {
+            echo json_encode(['success' => true]); // Ignorer les erreurs
+        }
     }
 }

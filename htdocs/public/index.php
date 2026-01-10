@@ -61,7 +61,7 @@ $router->get('/documents/{id}/edit', 'App\Controllers\DocumentController', 'edit
 $router->post('/documents/{id}', 'App\Controllers\DocumentController', 'update');
 $router->post('/documents/{id}/delete', 'App\Controllers\DocumentController', 'delete');
 
-// API Documents - Zones (nouvelles routes en premier)
+// API Documents - Zones
 $router->get('/api/zones/{id}', 'App\Controllers\DocumentController', 'getZone');
 $router->post('/api/zones/{id}/update', 'App\Controllers\DocumentController', 'updateZone');
 $router->post('/api/zones', 'App\Controllers\DocumentController', 'createZone');
@@ -120,7 +120,9 @@ $router->get('/api/chat/online', 'App\Controllers\ChatController', 'getOnlineUse
 $router->get('/api/chat/unread', 'App\Controllers\ChatController', 'getUnreadCount');
 $router->get('/api/chat/channels', 'App\Controllers\ChatController', 'getChannels');
 
+// ==========================================
 // API Sync documents temps réel
+// ==========================================
 $router->get('/api/documents/sync', 'App\Controllers\DocumentSyncController', 'getUpdates');
 $router->get('/api/documents/viewers', 'App\Controllers\DocumentSyncController', 'getViewers');
 $router->post('/api/documents/leave', 'App\Controllers\DocumentSyncController', 'leaveDocument');
