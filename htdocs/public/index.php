@@ -56,6 +56,7 @@ $router->get('/api/notifications/poll', 'App\Controllers\DashboardController', '
 $router->get('/documents', 'App\Controllers\DocumentController', 'index');
 $router->get('/documents/create', 'App\Controllers\DocumentController', 'create');
 $router->post('/documents', 'App\Controllers\DocumentController', 'store');
+$router->post('/documents/upload-ajax', 'App\Controllers\DocumentController', 'uploadAjax'); // Upload AJAX multiple
 $router->get('/documents/{id}', 'App\Controllers\DocumentController', 'show');
 $router->get('/documents/{id}/edit', 'App\Controllers\DocumentController', 'edit');
 $router->post('/documents/{id}', 'App\Controllers\DocumentController', 'update');

@@ -90,7 +90,7 @@ class DocumentController {
     }
     
     /**
-     * Upload d'un document
+     * Upload d'un document (formulaire standard)
      */
     public function store(): void {
         AuthController::requireAuth();
@@ -166,8 +166,8 @@ class DocumentController {
             'currency' => $_POST['currency'] ?? 'EUR'
         ]);
         
-        // Log de l'activité
-        $this->activityLog->log('upload', 'document', $documentId, 'Upload du document: ' . $file['name']);
+        // Log de l'activité (avec clé de traduction)
+        $this->activityLog->log('upload', 'document', $documentId, __('activity_upload_document', ['name' => $file['name']]));
         
         // Notification aux autres utilisateurs
         $this->notificationModel->notifyAllExcept(
@@ -180,6 +180,114 @@ class DocumentController {
         
         flash('success', 'Document uploadé avec succès.');
         redirect('/documents/' . $documentId);
+    }
+    
+    /**
+     * Upload AJAX d'un document (pour l'import multiple)
+     * Route: POST /documents/upload-ajax
+     */
+    public function uploadAjax(): void {
+        AuthController::requireAuth();
+        header('Content-Type: application/json');
+        
+        try {
+            // Vérification CSRF
+            if (!verify_csrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
+                echo json_encode(['success' => false, 'error' => __('session_expired') ?? 'Session expirée']);
+                return;
+            }
+            
+            // Validation du fichier
+            if (!isset($_FILES['document']) || $_FILES['document']['error'] !== UPLOAD_ERR_OK) {
+                $errorMessages = [
+                    UPLOAD_ERR_INI_SIZE => __('file_too_large') ?? 'Fichier trop volumineux',
+                    UPLOAD_ERR_FORM_SIZE => __('file_too_large') ?? 'Fichier trop volumineux',
+                    UPLOAD_ERR_PARTIAL => __('upload_partial') ?? 'Upload partiel',
+                    UPLOAD_ERR_NO_FILE => __('no_file_selected') ?? 'Aucun fichier sélectionné',
+                    UPLOAD_ERR_NO_TMP_DIR => __('upload_error') ?? 'Erreur d\'upload',
+                    UPLOAD_ERR_CANT_WRITE => __('upload_error') ?? 'Erreur d\'upload',
+                    UPLOAD_ERR_EXTENSION => __('upload_error') ?? 'Erreur d\'upload'
+                ];
+                $errorCode = $_FILES['document']['error'] ?? UPLOAD_ERR_NO_FILE;
+                echo json_encode(['success' => false, 'error' => $errorMessages[$errorCode] ?? 'Erreur d\'upload']);
+                return;
+            }
+            
+            $file = $_FILES['document'];
+            
+            // Vérification de l'extension
+            $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (!in_array($extension, ALLOWED_EXTENSIONS)) {
+                echo json_encode(['success' => false, 'error' => __('pdf_only_alert') ?? 'Seuls les fichiers PDF sont autorisés']);
+                return;
+            }
+            
+            // Vérification de la taille
+            if ($file['size'] > MAX_FILE_SIZE) {
+                echo json_encode(['success' => false, 'error' => __('file_too_large') ?? 'Fichier trop volumineux']);
+                return;
+            }
+            
+            // Vérification du type MIME
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->file($file['tmp_name']);
+            if ($mimeType !== 'application/pdf') {
+                echo json_encode(['success' => false, 'error' => __('pdf_only_alert') ?? 'Le fichier doit être un PDF valide']);
+                return;
+            }
+            
+            // Génération du nom de fichier unique
+            $filename = $this->documentModel->generateFilename($file['name']);
+            $uploadPath = UPLOAD_DIR . $filename;
+            
+            // Création du dossier si nécessaire
+            if (!is_dir(UPLOAD_DIR)) {
+                mkdir(UPLOAD_DIR, 0755, true);
+            }
+            
+            // Déplacement du fichier
+            if (!move_uploaded_file($file['tmp_name'], $uploadPath)) {
+                echo json_encode(['success' => false, 'error' => __('upload_error') ?? 'Erreur lors de l\'enregistrement']);
+                return;
+            }
+            
+            // Titre: utiliser le paramètre ou le nom du fichier
+            $title = !empty($_POST['title']) 
+                ? sanitize($_POST['title']) 
+                : pathinfo($file['name'], PATHINFO_FILENAME);
+            
+            // Création de l'enregistrement en base
+            $documentId = $this->documentModel->create([
+                'user_id' => currentUserId(),
+                'team_id' => !empty($_POST['team_id']) ? (int) $_POST['team_id'] : null,
+                'title' => $title,
+                'description' => sanitize($_POST['description'] ?? ''),
+                'filename' => $filename,
+                'original_name' => $file['name'],
+                'file_size' => $file['size'],
+                'file_path' => 'uploads/' . $filename,
+                'mime_type' => $mimeType,
+                'document_type' => $_POST['document_type'] ?? 'other',
+                'reference_number' => sanitize($_POST['reference_number'] ?? ''),
+                'document_date' => !empty($_POST['document_date']) ? $_POST['document_date'] : null,
+                'total_amount' => !empty($_POST['total_amount']) ? (float) $_POST['total_amount'] : null,
+                'currency' => $_POST['currency'] ?? 'EUR'
+            ]);
+            
+            // Log de l'activité (avec clé de traduction)
+            $this->activityLog->log('upload', 'document', $documentId, __('activity_upload_document', ['name' => $file['name']]));
+            
+            // Retour succès
+            echo json_encode([
+                'success' => true, 
+                'document_id' => $documentId,
+                'title' => $title,
+                'filename' => $filename
+            ]);
+            
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
     }
     
     /**
@@ -265,8 +373,8 @@ class DocumentController {
         $title = $document['title'];
         
         if ($this->documentModel->deleteWithFile($id)) {
-            $this->activityLog->log('delete', 'document', $id, 'Suppression du document: ' . $title);
-            flash('success', 'Document supprimé.');
+            $this->activityLog->log('delete', 'document', $id, __('activity_delete_document', ['name' => $title]));
+            flash('success', __('document_deleted') ?? 'Document supprimé.');
         } else {
             flash('error', 'Erreur lors de la suppression.');
         }
