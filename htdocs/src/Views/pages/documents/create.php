@@ -1,5 +1,9 @@
 <?php
-$pageTitle = 'Nouveau document';
+/**
+ * DocuFlow - Page de création de document (bilingue)
+ * Fichier: htdocs/src/Views/pages/documents/create.php
+ */
+$pageTitle = __('new_document');
 ob_start();
 ?>
 
@@ -10,9 +14,9 @@ ob_start();
                 <line x1="19" y1="12" x2="5" y2="12"/>
                 <polyline points="12 19 5 12 12 5"/>
             </svg>
-            Retour aux documents
+            <?= __('back_to_documents') ?>
         </a>
-        <h1>Nouveau document</h1>
+        <h1><?= __('new_document') ?></h1>
     </div>
 </div>
 
@@ -29,9 +33,9 @@ ob_start();
                     <polyline points="17 8 12 3 7 8"/>
                     <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                <h3>Glissez votre fichier PDF ici</h3>
-                <p>ou cliquez pour parcourir</p>
-                <span class="upload-hint">PDF uniquement • Max <?= formatFileSize(MAX_FILE_SIZE) ?></span>
+                <h3><?= __('drop_pdf_here') ?></h3>
+                <p><?= __('or_click_to_browse') ?></p>
+                <span class="upload-hint"><?= __('pdf_only') ?> • <?= __('max_size') ?> <?= formatFileSize(MAX_FILE_SIZE) ?></span>
             </div>
             <div class="upload-preview" id="uploadPreview" style="display: none;">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -40,59 +44,64 @@ ob_start();
                 </svg>
                 <span class="file-name" id="fileName"></span>
                 <span class="file-size" id="fileSize"></span>
-                <button type="button" class="remove-file" onclick="removeFile()">×</button>
+                <button type="button" class="remove-file" onclick="removeFile()">&times;</button>
             </div>
         </div>
         
         <!-- Informations du document -->
         <div class="form-section">
-            <h2>Informations</h2>
+            <h2><?= __('informations') ?></h2>
             
             <div class="form-row">
                 <div class="form-group">
-                    <label for="title">Titre du document *</label>
-                    <input type="text" id="title" name="title" required placeholder="Ex: Facture fournisseur Mars 2024">
+                    <label for="title"><?= __('document_title') ?> *</label>
+                    <input type="text" id="title" name="title" required 
+                           placeholder="<?= __('document_title_placeholder') ?>">
                 </div>
                 
                 <div class="form-group">
-                    <label for="document_type">Type de document</label>
+                    <label for="document_type"><?= __('document_type') ?></label>
                     <select id="document_type" name="document_type">
                         <?php foreach ($documentTypes as $key => $label): ?>
-                        <option value="<?= $key ?>"><?= $label ?></option>
+                        <option value="<?= $key ?>"><?= __('type_' . $key) !== 'type_' . $key ? __('type_' . $key) : $label ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
             </div>
             
             <div class="form-group">
-                <label for="description">Description</label>
-                <textarea id="description" name="description" rows="3" placeholder="Description optionnelle du document..."></textarea>
+                <label for="description"><?= __('description') ?></label>
+                <textarea id="description" name="description" rows="3" 
+                          placeholder="<?= __('document_description_placeholder') ?>"></textarea>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
-                    <label for="reference_number">Numéro de référence</label>
-                    <input type="text" id="reference_number" name="reference_number" placeholder="Ex: FAC-2024-001">
+                    <label for="reference_number"><?= __('reference_number') ?></label>
+                    <input type="text" id="reference_number" name="reference_number" 
+                           placeholder="<?= __('reference_placeholder') ?>">
                 </div>
                 
                 <div class="form-group">
-                    <label for="document_date">Date du document</label>
+                    <label for="document_date"><?= __('document_date') ?></label>
                     <input type="date" id="document_date" name="document_date">
                 </div>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
-                    <label for="total_amount">Montant</label>
-                    <input type="number" id="total_amount" name="total_amount" step="0.01" placeholder="0.00">
+                    <label for="total_amount"><?= __('amount') ?></label>
+                    <input type="number" id="total_amount" name="total_amount" step="0.01" min="0" 
+                           placeholder="0.00">
                 </div>
                 
                 <div class="form-group">
-                    <label for="currency">Devise</label>
+                    <label for="currency"><?= __('currency') ?></label>
                     <select id="currency" name="currency">
                         <option value="EUR">EUR (€)</option>
                         <option value="USD">USD ($)</option>
                         <option value="GBP">GBP (£)</option>
+                        <option value="CHF">CHF</option>
                     </select>
                 </div>
             </div>
@@ -100,36 +109,42 @@ ob_start();
         
         <!-- Attribution -->
         <div class="form-section">
-            <h2>Attribution</h2>
+            <h2><?= __('attribution') ?></h2>
             
             <div class="form-group">
-                <label for="team_id">Équipe (optionnel)</label>
+                <label for="team_id"><?= __('team') ?> (<?= __('optional') ?>)</label>
                 <select id="team_id" name="team_id">
-                    <option value="">Aucune équipe</option>
+                    <option value=""><?= __('no_team') ?></option>
                     <?php foreach ($teams as $team): ?>
                     <option value="<?= $team['id'] ?>"><?= sanitize($team['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
-                <span class="form-hint">Le document sera visible par tous, mais peut être associé à une équipe</span>
+                <small class="form-hint"><?= __('team_visibility_hint') ?></small>
             </div>
         </div>
         
         <!-- Actions -->
         <div class="form-actions">
-            <a href="/documents" class="btn btn-ghost">Annuler</a>
+            <a href="/documents" class="btn btn-ghost"><?= __('cancel') ?></a>
             <button type="submit" class="btn btn-primary">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="17 8 12 3 7 8"/>
                     <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                Uploader le document
+                <?= __('upload_document') ?>
             </button>
         </div>
     </form>
 </div>
 
 <script>
+// Traductions pour les alertes JavaScript
+const LANG = {
+    pdf_only_alert: '<?= __('pdf_only_alert') ?>',
+    file_too_large: '<?= __('file_too_large') ?>'
+};
+
 // Gestion du drag & drop
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('documentFile');
@@ -160,7 +175,6 @@ function handleDrop(e) {
     const dt = e.dataTransfer;
     const files = dt.files;
     
-    // Assigner le fichier au input
     if (files.length > 0) {
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(files[0]);
@@ -180,13 +194,13 @@ function handleFiles(files) {
         
         // Vérification du type
         if (file.type !== 'application/pdf') {
-            alert('Seuls les fichiers PDF sont autorisés.');
+            alert(LANG.pdf_only_alert);
             return;
         }
         
         // Vérification de la taille
         if (file.size > <?= MAX_FILE_SIZE ?>) {
-            alert('Le fichier est trop volumineux (max <?= formatFileSize(MAX_FILE_SIZE) ?>).');
+            alert(LANG.file_too_large);
             return;
         }
         

@@ -126,6 +126,34 @@ return [
         'all_teams' => 'Toutes les équipes',
         'date_format_placeholder' => 'jj/mm/aaaa',
         
+        // Page création de document
+        'back_to_documents' => 'Retour aux documents',
+        'drop_pdf_here' => 'Glissez votre fichier PDF ici',
+        'or_click_to_browse' => 'ou cliquez pour parcourir',
+        'pdf_only' => 'PDF uniquement',
+        'max_size' => 'Max',
+        'informations' => 'Informations',
+        'document_title_placeholder' => 'Ex: Facture fournisseur Mars 2024',
+        'document_description_placeholder' => 'Description optionnelle du document...',
+        'reference_number' => 'Numéro de référence',
+        'reference_placeholder' => 'Ex: FAC-2024-001',
+        'amount' => 'Montant',
+        'currency' => 'Devise',
+        'attribution' => 'Attribution',
+        'team_visibility_hint' => 'Le document sera visible par tous, mais peut être associé à une équipe',
+        'pdf_only_alert' => 'Seuls les fichiers PDF sont autorisés.',
+        'file_too_large' => 'Le fichier est trop volumineux.',
+        
+        // Page édition de document
+        'edit_document' => 'Modifier le document',
+        'back_to_document' => 'Retour au document',
+        'uploaded_on' => 'Uploadé le',
+        'view_pdf' => 'Voir le PDF',
+        'danger_zone' => 'Zone de danger',
+        'delete_document_warning' => 'La suppression d\'un document est irréversible. Toutes les zones, liaisons et annotations associées seront également supprimées.',
+        'delete_document_confirm_full' => 'Êtes-vous sûr de vouloir supprimer ce document ? Cette action est irréversible.',
+        'delete_this_document' => 'Supprimer ce document',
+        
         // Types de documents
         'type_invoice' => 'Facture',
         'type_quote' => 'Devis',
@@ -423,6 +451,10 @@ return [
         // ==========================================
         'sync_updated' => 'Document mis à jour par un collaborateur',
         'viewers_count' => ':count personne(s) sur ce document',
+        'online' => 'en ligne',
+        'you_suffix' => ' (vous)',
+        'just_now' => 'À l\'instant',
+        'user' => 'Utilisateur',
         
         // ==========================================
         // STOCKAGE
@@ -443,6 +475,19 @@ return [
         'search_results' => 'Résultats de recherche',
         'search_no_results' => 'Aucun résultat trouvé',
         'search_for' => 'Recherche de ":query"',
+        'results_count' => 'résultat(s) pour',
+        'search_placeholder' => 'Rechercher des documents, du contenu...',
+        'search_button' => 'Rechercher',
+        'search_in_ocr' => 'Rechercher dans le contenu OCR',
+        'no_results' => 'Aucun résultat',
+        'no_results_for' => 'Aucun document ne correspond à votre recherche',
+        'search_tips_title' => 'Conseils de recherche :',
+        'search_tip_1' => 'Vérifiez l\'orthographe des termes',
+        'search_tip_2' => 'Essayez des mots-clés plus généraux',
+        'search_tip_3' => 'Activez la recherche dans le contenu OCR pour rechercher dans le texte des documents',
+        'ref' => 'Réf',
+        'page' => 'Page',
+        'of' => 'sur',
         
         // ==========================================
         // ERREURS
@@ -609,6 +654,34 @@ return [
         'all_types' => 'All types',
         'all_teams' => 'All teams',
         'date_format_placeholder' => 'mm/dd/yyyy',
+        
+        // Document creation page
+        'back_to_documents' => 'Back to documents',
+        'drop_pdf_here' => 'Drop your PDF file here',
+        'or_click_to_browse' => 'or click to browse',
+        'pdf_only' => 'PDF only',
+        'max_size' => 'Max',
+        'informations' => 'Information',
+        'document_title_placeholder' => 'Ex: Supplier Invoice March 2024',
+        'document_description_placeholder' => 'Optional document description...',
+        'reference_number' => 'Reference number',
+        'reference_placeholder' => 'Ex: INV-2024-001',
+        'amount' => 'Amount',
+        'currency' => 'Currency',
+        'attribution' => 'Attribution',
+        'team_visibility_hint' => 'The document will be visible to everyone, but can be associated with a team',
+        'pdf_only_alert' => 'Only PDF files are allowed.',
+        'file_too_large' => 'The file is too large.',
+        
+        // Document edit page
+        'edit_document' => 'Edit document',
+        'back_to_document' => 'Back to document',
+        'uploaded_on' => 'Uploaded on',
+        'view_pdf' => 'View PDF',
+        'danger_zone' => 'Danger zone',
+        'delete_document_warning' => 'Deleting a document is irreversible. All associated zones, links and annotations will also be deleted.',
+        'delete_document_confirm_full' => 'Are you sure you want to delete this document? This action cannot be undone.',
+        'delete_this_document' => 'Delete this document',
         
         // Document types
         'type_invoice' => 'Invoice',
@@ -907,6 +980,10 @@ return [
         // ==========================================
         'sync_updated' => 'Document updated by a collaborator',
         'viewers_count' => ':count person(s) on this document',
+        'online' => 'online',
+        'you_suffix' => ' (you)',
+        'just_now' => 'Just now',
+        'user' => 'User',
         
         // ==========================================
         // STORAGE
@@ -927,6 +1004,19 @@ return [
         'search_results' => 'Search results',
         'search_no_results' => 'No results found',
         'search_for' => 'Search for ":query"',
+        'results_count' => 'result(s) for',
+        'search_placeholder' => 'Search documents, content...',
+        'search_button' => 'Search',
+        'search_in_ocr' => 'Search in OCR content',
+        'no_results' => 'No results',
+        'no_results_for' => 'No document matches your search',
+        'search_tips_title' => 'Search tips:',
+        'search_tip_1' => 'Check the spelling of the terms',
+        'search_tip_2' => 'Try more general keywords',
+        'search_tip_3' => 'Enable OCR content search to search within document text',
+        'ref' => 'Ref',
+        'page' => 'Page',
+        'of' => 'of',
         
         // ==========================================
         // ERRORS

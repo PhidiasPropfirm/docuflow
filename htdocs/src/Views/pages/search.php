@@ -1,12 +1,74 @@
 <?php
-$pageTitle = 'Recherche : ' . $query;
+/**
+ * DocuFlow - Page de recherche
+ * Fichier: htdocs/src/Views/pages/search.php
+ */
+
+// Helper pour surligner les termes recherchés (doit être défini AVANT utilisation)
+if (!function_exists('highlightSearch')) {
+    function highlightSearch($text, $query) {
+        if (empty($text) || empty($query)) return sanitize($text ?? '');
+        $text = sanitize($text);
+        $words = explode(' ', $query);
+        foreach ($words as $word) {
+            if (strlen($word) > 2) {
+                $text = preg_replace('/(' . preg_quote($word, '/') . ')/i', '<mark>$1</mark>', $text);
+            }
+        }
+        return $text;
+    }
+}
+
+// Initialiser les variables avec des valeurs par défaut
+$query = $query ?? '';
+$searchContent = isset($_GET['content']) && $_GET['content'] == '1';
+
+// Normaliser la structure des résultats
+if (!isset($results) || !is_array($results)) {
+    $results = ['data' => [], 'total' => 0, 'current_page' => 1, 'last_page' => 1];
+}
+
+// Si les résultats viennent de l'ancienne structure du contrôleur
+if (isset($results['documents']) && !isset($results['data'])) {
+    $allResults = $results['documents'] ?? [];
+    // Fusionner avec les résultats de contenu OCR si disponibles
+    if (!empty($results['content'])) {
+        $contentIds = array_column($results['content'], 'id');
+        foreach ($results['content'] as $contentDoc) {
+            $found = false;
+            foreach ($allResults as &$doc) {
+                if ($doc['id'] == $contentDoc['id']) {
+                    $doc['content_match'] = $contentDoc['content_match'] ?? '';
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                $allResults[] = $contentDoc;
+            }
+        }
+    }
+    $results = [
+        'data' => $allResults,
+        'total' => count($allResults),
+        'current_page' => 1,
+        'last_page' => 1
+    ];
+}
+
+// S'assurer que 'total' existe
+if (!isset($results['total'])) {
+    $results['total'] = count($results['data'] ?? []);
+}
+
+$pageTitle = __('search_results');
 ob_start();
 ?>
 
 <div class="page-header">
     <div class="page-header-content">
-        <h1>Résultats de recherche</h1>
-        <p><?= $results['total'] ?> résultat(s) pour "<?= sanitize($query) ?>"</p>
+        <h1><?= __('search_results') ?></h1>
+        <p><?= $results['total'] ?> <?= __('results_count') ?> "<?= sanitize($query) ?>"</p>
     </div>
 </div>
 
@@ -18,14 +80,14 @@ ob_start();
                 <circle cx="11" cy="11" r="8"/>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input type="text" name="q" value="<?= sanitize($query) ?>" placeholder="Rechercher des documents, du contenu..." autofocus>
-            <button type="submit" class="btn btn-primary">Rechercher</button>
+            <input type="text" name="q" value="<?= sanitize($query) ?>" placeholder="<?= __('search_placeholder') ?>" autofocus>
+            <button type="submit" class="btn btn-primary"><?= __('search_button') ?></button>
         </div>
         
         <div class="search-options">
             <label class="checkbox-label">
-                <input type="checkbox" name="content" <?= $searchContent ? 'checked' : '' ?>>
-                <span>Rechercher dans le contenu OCR</span>
+                <input type="checkbox" name="content" value="1" <?= $searchContent ? 'checked' : '' ?>>
+                <span><?= __('search_in_ocr') ?></span>
             </label>
         </div>
     </form>
@@ -38,14 +100,14 @@ ob_start();
         <circle cx="11" cy="11" r="8"/>
         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
     </svg>
-    <h3>Aucun résultat</h3>
-    <p>Aucun document ne correspond à votre recherche "<?= sanitize($query) ?>"</p>
+    <h3><?= __('no_results') ?></h3>
+    <p><?= __('no_results_for') ?> "<?= sanitize($query) ?>"</p>
     <div class="search-tips">
-        <h4>Conseils de recherche :</h4>
+        <h4><?= __('search_tips_title') ?></h4>
         <ul>
-            <li>Vérifiez l'orthographe des termes</li>
-            <li>Essayez des mots-clés plus généraux</li>
-            <li>Activez la recherche dans le contenu OCR pour rechercher dans le texte des documents</li>
+            <li><?= __('search_tip_1') ?></li>
+            <li><?= __('search_tip_2') ?></li>
+            <li><?= __('search_tip_3') ?></li>
         </ul>
     </div>
 </div>
@@ -66,18 +128,18 @@ ob_start();
                 <h3 class="result-title"><?= highlightSearch($doc['title'], $query) ?></h3>
                 
                 <div class="result-meta">
-                    <span class="badge badge-<?= $doc['document_type'] ?>"><?= \App\Models\Document::TYPES[$doc['document_type']] ?? 'Autre' ?></span>
-                    <?php if ($doc['team_name']): ?>
-                    <span class="team-badge" style="--team-color: <?= $doc['team_color'] ?>">
+                    <span class="badge badge-<?= $doc['document_type'] ?? 'other' ?>"><?= \App\Models\Document::TYPES[$doc['document_type']] ?? __('other') ?></span>
+                    <?php if (!empty($doc['team_name'])): ?>
+                    <span class="team-badge" style="--team-color: <?= $doc['team_color'] ?? '#3B82F6' ?>">
                         <?= sanitize($doc['team_name']) ?>
                     </span>
                     <?php endif; ?>
-                    <?php if ($doc['reference_number']): ?>
-                    <span class="ref">Réf: <?= highlightSearch($doc['reference_number'], $query) ?></span>
+                    <?php if (!empty($doc['reference_number'])): ?>
+                    <span class="ref"><?= __('ref') ?>: <?= highlightSearch($doc['reference_number'], $query) ?></span>
                     <?php endif; ?>
                 </div>
                 
-                <?php if ($doc['description']): ?>
+                <?php if (!empty($doc['description'])): ?>
                 <p class="result-description"><?= highlightSearch(substr($doc['description'], 0, 200), $query) ?>...</p>
                 <?php endif; ?>
                 
@@ -94,11 +156,11 @@ ob_start();
                 
                 <div class="result-footer">
                     <span class="result-author">
-                        <div class="avatar-xs"><?= strtoupper(substr($doc['first_name'], 0, 1) . substr($doc['last_name'], 0, 1)) ?></div>
-                        <?= sanitize($doc['first_name'] . ' ' . $doc['last_name']) ?>
+                        <div class="avatar-xs"><?= strtoupper(substr($doc['first_name'] ?? '', 0, 1) . substr($doc['last_name'] ?? '', 0, 1)) ?></div>
+                        <?= sanitize(($doc['first_name'] ?? '') . ' ' . ($doc['last_name'] ?? '')) ?>
                     </span>
-                    <span class="result-date"><?= formatDate($doc['created_at']) ?></span>
-                    <span class="result-size"><?= formatFileSize($doc['file_size']) ?></span>
+                    <span class="result-date"><?= formatDate($doc['created_at'] ?? '') ?></span>
+                    <span class="result-size"><?= formatFileSize($doc['file_size'] ?? 0) ?></span>
                 </div>
             </div>
         </a>
@@ -107,10 +169,10 @@ ob_start();
 </div>
 
 <!-- Pagination -->
-<?php if ($results['last_page'] > 1): ?>
+<?php if (($results['last_page'] ?? 1) > 1): ?>
 <div class="pagination">
-    <?php if ($results['current_page'] > 1): ?>
-    <a href="?q=<?= urlencode($query) ?>&page=<?= $results['current_page'] - 1 ?><?= $searchContent ? '&content=1' : '' ?>" class="pagination-btn">
+    <?php if (($results['current_page'] ?? 1) > 1): ?>
+    <a href="?q=<?= urlencode($query) ?>&page=<?= ($results['current_page'] ?? 1) - 1 ?><?= $searchContent ? '&content=1' : '' ?>" class="pagination-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="15 18 9 12 15 6"/>
         </svg>
@@ -118,11 +180,11 @@ ob_start();
     <?php endif; ?>
     
     <span class="pagination-info">
-        Page <?= $results['current_page'] ?> sur <?= $results['last_page'] ?>
+        <?= __('page') ?> <?= $results['current_page'] ?? 1 ?> <?= __('of') ?> <?= $results['last_page'] ?? 1 ?>
     </span>
     
-    <?php if ($results['current_page'] < $results['last_page']): ?>
-    <a href="?q=<?= urlencode($query) ?>&page=<?= $results['current_page'] + 1 ?><?= $searchContent ? '&content=1' : '' ?>" class="pagination-btn">
+    <?php if (($results['current_page'] ?? 1) < ($results['last_page'] ?? 1)): ?>
+    <a href="?q=<?= urlencode($query) ?>&page=<?= ($results['current_page'] ?? 1) + 1 ?><?= $searchContent ? '&content=1' : '' ?>" class="pagination-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="9 18 15 12 9 6"/>
         </svg>
@@ -132,20 +194,6 @@ ob_start();
 <?php endif; ?>
 
 <?php endif; ?>
-
-<?php
-// Helper pour surligner les termes recherchés
-function highlightSearch($text, $query) {
-    $text = sanitize($text);
-    $words = explode(' ', $query);
-    foreach ($words as $word) {
-        if (strlen($word) > 2) {
-            $text = preg_replace('/(' . preg_quote($word, '/') . ')/i', '<mark>$1</mark>', $text);
-        }
-    }
-    return $text;
-}
-?>
 
 <style>
 .search-filters {
@@ -216,7 +264,7 @@ function highlightSearch($text, $query) {
 
 .result-link {
     display: flex;
-    gap: 1rem;
+    gap: 1.25rem;
     padding: 1.25rem;
     text-decoration: none;
     color: inherit;
@@ -231,9 +279,6 @@ function highlightSearch($text, $query) {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-}
-
-.result-icon svg {
     color: var(--primary);
 }
 
@@ -245,14 +290,14 @@ function highlightSearch($text, $query) {
 .result-title {
     font-size: 1.125rem;
     font-weight: 600;
-    margin-bottom: 0.5rem;
     color: var(--text-primary);
+    margin-bottom: 0.5rem;
 }
 
 .result-title mark {
-    background: rgba(245, 158, 11, 0.3);
-    color: inherit;
-    padding: 0 2px;
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--primary);
+    padding: 0.1em 0.2em;
     border-radius: 2px;
 }
 
@@ -260,7 +305,6 @@ function highlightSearch($text, $query) {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    align-items: center;
     margin-bottom: 0.5rem;
 }
 
@@ -272,20 +316,20 @@ function highlightSearch($text, $query) {
 .result-description {
     font-size: 0.875rem;
     color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-    line-height: 1.6;
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
 }
 
 .result-description mark {
-    background: rgba(245, 158, 11, 0.3);
-    color: inherit;
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--text-primary);
 }
 
 .result-content-match {
     display: flex;
     align-items: flex-start;
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.75rem;
     background: var(--bg-secondary);
     border-radius: var(--border-radius);
     font-size: 0.8125rem;
@@ -294,19 +338,14 @@ function highlightSearch($text, $query) {
 }
 
 .result-content-match svg {
+    color: var(--primary);
     flex-shrink: 0;
     margin-top: 2px;
-    color: var(--text-muted);
-}
-
-.result-content-match mark {
-    background: rgba(245, 158, 11, 0.3);
-    color: inherit;
 }
 
 .result-footer {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
     gap: 1rem;
     font-size: 0.8125rem;
     color: var(--text-muted);
@@ -315,42 +354,107 @@ function highlightSearch($text, $query) {
 .result-author {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
+    gap: 0.5rem;
+}
+
+.avatar-xs {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.625rem;
+    font-weight: 600;
+}
+
+.empty-state.large {
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
+.empty-state.large svg {
+    color: var(--gray-400);
+    margin-bottom: 1.5rem;
+}
+
+.empty-state.large h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
 }
 
 .search-tips {
+    margin-top: 2rem;
     text-align: left;
     max-width: 400px;
-    margin: 2rem auto 0;
-    padding: 1.5rem;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-lg);
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .search-tips h4 {
     font-size: 0.875rem;
-    font-weight: 600;
+    color: var(--text-secondary);
     margin-bottom: 0.75rem;
 }
 
 .search-tips ul {
-    list-style: none;
+    list-style: disc;
+    padding-left: 1.25rem;
+    color: var(--text-muted);
     font-size: 0.875rem;
-    color: var(--text-secondary);
 }
 
 .search-tips li {
-    padding: 0.375rem 0;
-    padding-left: 1.25rem;
-    position: relative;
+    margin-bottom: 0.5rem;
 }
 
-.search-tips li::before {
-    content: '→';
-    position: absolute;
-    left: 0;
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.pagination-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.pagination-btn:hover {
+    border-color: var(--primary);
     color: var(--primary);
+}
+
+.pagination-info {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+    .result-link {
+        flex-direction: column;
+    }
+    
+    .result-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .result-footer {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
 }
 </style>
 

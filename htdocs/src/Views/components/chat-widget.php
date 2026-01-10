@@ -1,6 +1,7 @@
 <?php
 /**
  * Widget de chat en temps réel avec support multilingue
+ * Avec notification de messages non lus
  * Inclure ce fichier dans le layout main.php
  */
 
@@ -34,6 +35,7 @@ $chatTranslations = [
     'time_days' => __('time_days'),
     'today' => __('today'),
     'yesterday' => __('yesterday'),
+    'new_message' => __('new_message') ?? 'New message',
 ];
 ?>
 <!-- Chat Widget -->
@@ -53,7 +55,7 @@ $chatTranslations = [
                 <h3><?= __('chat_title') ?></h3>
                 <span id="chatOnlineCount" class="chat-online-indicator">
                     <span class="online-dot"></span>
-                    <span class="online-count">0 <?= __('chat_online') ?></span>
+                    <span class="online-count">0 online</span>
                 </span>
             </div>
             <div class="chat-header-actions">
@@ -155,6 +157,30 @@ $chatTranslations = [
     align-items: center;
     justify-content: center;
     padding: 0 5px;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
+}
+
+/* Animation du badge pour les nouveaux messages */
+.chat-unread-badge.pulse {
+    animation: badgePulse 0.5s ease-in-out;
+}
+
+@keyframes badgePulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+/* Animation de notification sur le bouton */
+.chat-toggle.has-new {
+    animation: toggleBounce 0.5s ease;
+}
+
+@keyframes toggleBounce {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(1.1); }
+    50% { transform: scale(0.95); }
+    75% { transform: scale(1.05); }
 }
 
 .chat-window {
@@ -422,7 +448,7 @@ $chatTranslations = [
     align-items: center;
     justify-content: space-between;
     padding: 8px 16px;
-    background: var(--bg-secondary, #f9fafb);
+    background: var(--bg-secondary, #f3f4f6);
     border-top: 1px solid var(--border-color, #e5e7eb);
 }
 
@@ -452,20 +478,20 @@ $chatTranslations = [
     border: none;
     background: transparent;
     cursor: pointer;
-    border-radius: 4px;
+    color: var(--text-secondary, #6B7280);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-secondary, #6B7280);
+    border-radius: 4px;
 }
 
 .reply-cancel:hover {
-    background: var(--bg-tertiary, #f3f4f6);
+    background: rgba(0, 0, 0, 0.05);
 }
 
 .chat-input-area {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     padding: 12px 16px;
     border-top: 1px solid var(--border-color, #e5e7eb);
     background: var(--bg-primary, white);
@@ -496,16 +522,18 @@ $chatTranslations = [
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s;
+    transition: background 0.15s, transform 0.15s;
 }
 
 .chat-send:hover {
-    background: #2563EB;
+    background: #2563eb;
+    transform: scale(1.05);
 }
 
 .chat-send:disabled {
-    background: var(--text-secondary, #6B7280);
+    background: var(--gray-300, #d1d5db);
     cursor: not-allowed;
+    transform: none;
 }
 
 /* Date separator */
@@ -513,20 +541,8 @@ $chatTranslations = [
     display: flex;
     align-items: center;
     gap: 12px;
-    margin: 8px 0;
-}
-
-.chat-date-separator::before,
-.chat-date-separator::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border-color, #e5e7eb);
-}
-
-.chat-date-separator span {
     font-size: 0.7rem;
-    color: var(--text-secondary, #6B7280);
+    color: var(--text-muted, #9ca3af);
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -544,7 +560,7 @@ $chatTranslations = [
 </style>
 
 <script>
-// Chat Widget JavaScript avec traductions
+// Chat Widget JavaScript avec traductions et notifications
 (function() {
     // Traductions injectées depuis PHP
     const TRANSLATIONS = <?= json_encode($chatTranslations, JSON_UNESCAPED_UNICODE) ?>;
@@ -560,13 +576,17 @@ $chatTranslations = [
     
     const POLL_INTERVAL = 3000; // 3 secondes
     const ONLINE_POLL_INTERVAL = 30000; // 30 secondes
+    const UNREAD_POLL_INTERVAL = 10000; // 10 secondes (pour les non-lus quand chat fermé)
     
     let chatOpen = false;
     let currentChannel = 'general';
     let lastMessageId = 0;
+    let lastKnownMessageId = 0; // Pour détecter les nouveaux messages
     let replyToId = null;
     let pollTimer = null;
     let onlinePollTimer = null;
+    let unreadPollTimer = null;
+    let unreadCount = 0;
     
     // Éléments DOM
     const widget = document.getElementById('chatWidget');
@@ -583,6 +603,10 @@ $chatTranslations = [
     const replyToSpan = document.getElementById('chatReplyTo');
     const cancelReplyBtn = document.getElementById('chatCancelReply');
     
+    // Initialiser le polling des messages non lus au chargement
+    startUnreadPolling();
+    checkUnreadMessages(); // Vérification immédiate
+    
     // Ouvrir/Fermer le chat
     toggleBtn.addEventListener('click', () => {
         chatOpen = !chatOpen;
@@ -591,11 +615,18 @@ $chatTranslations = [
         toggleBtn.title = chatOpen ? t('chat_close') : t('chat_open');
         
         if (chatOpen) {
+            // Réinitialiser le badge
+            unreadCount = 0;
+            updateUnreadBadge(0);
+            
+            // Charger les messages et démarrer le polling
             loadMessages();
             startPolling();
+            stopUnreadPolling();
             input.focus();
         } else {
             stopPolling();
+            startUnreadPolling();
         }
     });
     
@@ -605,7 +636,72 @@ $chatTranslations = [
         toggleBtn.classList.remove('active');
         toggleBtn.title = t('chat_open');
         stopPolling();
+        startUnreadPolling();
     });
+    
+    // Mettre à jour le badge des non-lus
+    function updateUnreadBadge(count) {
+        unreadCount = count;
+        if (count > 0) {
+            unreadBadge.textContent = count > 99 ? '99+' : count;
+            unreadBadge.style.display = 'flex';
+            
+            // Animation pulse
+            unreadBadge.classList.remove('pulse');
+            void unreadBadge.offsetWidth; // Force reflow
+            unreadBadge.classList.add('pulse');
+            
+            // Animation bounce sur le bouton
+            toggleBtn.classList.remove('has-new');
+            void toggleBtn.offsetWidth;
+            toggleBtn.classList.add('has-new');
+        } else {
+            unreadBadge.style.display = 'none';
+        }
+    }
+    
+    // Vérifier les messages non lus (quand le chat est fermé)
+    async function checkUnreadMessages() {
+        if (chatOpen) return;
+        
+        try {
+            const response = await fetch(`/api/chat/unread?channel=${currentChannel}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const newCount = data.unread_count || 0;
+                const latestId = data.latest_message_id || 0;
+                
+                // Si on a de nouveaux messages
+                if (latestId > lastKnownMessageId && lastKnownMessageId > 0) {
+                    // Mettre à jour le badge avec animation
+                    updateUnreadBadge(newCount);
+                }
+                
+                lastKnownMessageId = latestId;
+                
+                // Afficher le badge même au premier chargement si non-lus
+                if (newCount > 0 && !chatOpen) {
+                    updateUnreadBadge(newCount);
+                }
+            }
+        } catch (error) {
+            console.error('Error checking unread:', error);
+        }
+    }
+    
+    // Polling des non-lus
+    function startUnreadPolling() {
+        stopUnreadPolling();
+        unreadPollTimer = setInterval(checkUnreadMessages, UNREAD_POLL_INTERVAL);
+    }
+    
+    function stopUnreadPolling() {
+        if (unreadPollTimer) {
+            clearInterval(unreadPollTimer);
+            unreadPollTimer = null;
+        }
+    }
     
     // Envoyer un message
     async function sendMessage() {
@@ -668,12 +764,15 @@ $chatTranslations = [
                     if (msg.id > lastMessageId) {
                         appendMessage(msg);
                         lastMessageId = msg.id;
+                        lastKnownMessageId = msg.id;
                     }
                 });
                 
                 if (data.online_count !== undefined) {
                     updateOnlineCount(data.online_count);
                 }
+                
+                scrollToBottom();
             }
         } catch (error) {
             console.error(t('chat_error_load'), error);
@@ -737,8 +836,10 @@ $chatTranslations = [
         if (!confirm(t('chat_delete_confirm'))) return;
         
         try {
-            const response = await fetch(`/api/chat/delete/${id}`, {
-                method: 'DELETE'
+            const response = await fetch('/api/chat/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
             });
             
             if (response.ok) {
@@ -758,22 +859,43 @@ $chatTranslations = [
     function updateOnlineCount(count) {
         const countSpan = onlineCount.querySelector('.online-count');
         if (countSpan) {
+            // Utiliser la traduction avec remplacement du placeholder :count
             countSpan.textContent = t('chat_online', { count: count });
         }
     }
     
-    // Polling
+    // Polling des messages (quand chat ouvert)
     function startPolling() {
         stopPolling();
         pollTimer = setInterval(loadMessages, POLL_INTERVAL);
         onlinePollTimer = setInterval(() => {
-            fetch('/api/chat/ping', { method: 'POST' });
+            // Ping pour signaler notre présence ET récupérer le compteur
+            fetchOnlineCount();
         }, ONLINE_POLL_INTERVAL);
+        
+        // Récupérer le compteur immédiatement
+        fetchOnlineCount();
+    }
+    
+    // Récupérer le nombre d'utilisateurs en ligne
+    async function fetchOnlineCount() {
+        try {
+            const response = await fetch(`/api/chat/online?channel=${currentChannel}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                updateOnlineCount(data.count || 0);
+            }
+        } catch (error) {
+            console.error('Error fetching online count:', error);
+        }
     }
     
     function stopPolling() {
         if (pollTimer) clearInterval(pollTimer);
         if (onlinePollTimer) clearInterval(onlinePollTimer);
+        pollTimer = null;
+        onlinePollTimer = null;
     }
     
     // Scroll en bas
@@ -783,6 +905,7 @@ $chatTranslations = [
     
     // Échapper le HTML
     function escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;

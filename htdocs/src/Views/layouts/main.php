@@ -230,9 +230,6 @@
     
     <script src="/js/app.js"></script>
     
-    <!-- NOTE: Le script document-sync.js n'est plus nécessaire ici -->
-    <!-- La synchronisation temps réel est maintenant intégrée directement dans show.php -->
-    
     <script>
     // Toggle menu langue
     function toggleLangMenu() {

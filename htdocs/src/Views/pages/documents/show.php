@@ -33,6 +33,8 @@ $docuflowTranslations = [
         'delete_zone_confirm' => 'Supprimer cette zone ?', 'ocr_confirm' => 'Lancer l\'OCR sur tout le document ?',
         'ocr_complete' => 'OCR terminé !', 'error_zone_not_found' => 'Zone introuvable',
         'content_required' => 'Contenu requis', 'sync_updated' => 'Document mis à jour par un collaborateur',
+        'sync_deleted' => 'Élément supprimé par un collaborateur',
+        'delete_document_confirm' => 'Supprimer ce document ? Cette action est irréversible.',
     ],
     'en' => [
         'zones' => 'Zones', 'zone' => 'Zone', 'links' => 'Links', 'notes' => 'Notes', 'info' => 'Info',
@@ -61,6 +63,8 @@ $docuflowTranslations = [
         'delete_zone_confirm' => 'Delete this zone?', 'ocr_confirm' => 'Run OCR on the entire document?',
         'ocr_complete' => 'OCR complete!', 'error_zone_not_found' => 'Zone not found',
         'content_required' => 'Content required', 'sync_updated' => 'Document updated by a collaborator',
+        'sync_deleted' => 'Element deleted by a collaborator',
+        'delete_document_confirm' => 'Delete this document? This action cannot be undone.',
     ]
 ];
 
@@ -107,6 +111,12 @@ ob_start();
             <a href="/uploads/<?= $document['filename'] ?? '' ?>" download class="btn btn-ghost btn-sm">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> <?= _t('download') ?>
             </a>
+            <a href="/documents/<?= $document['id'] ?>/edit" class="btn btn-ghost btn-sm">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> <?= _t('edit') ?>
+            </a>
+            <button class="btn btn-danger btn-sm" onclick="confirmDeleteDocument(<?= $document['id'] ?>)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> <?= _t('delete') ?>
+            </button>
         </div>
     </div>
     
@@ -251,6 +261,11 @@ ob_start();
 <div class="modal-footer"><button onclick="closeMentionModal()" class="btn btn-ghost"><?= _t('cancel') ?></button><button onclick="sendMention()" class="btn btn-primary"><?= _t('send_notification') ?></button></div>
 </div></div>
 
+<!-- Formulaire de suppression caché -->
+<form id="deleteDocumentForm" action="/documents/<?= $document['id'] ?>/delete" method="POST" style="display:none;">
+    <?= function_exists('csrf_field') ? csrf_field() : '<input type="hidden" name="csrf_token" value="' . ($_SESSION['csrf_token'] ?? '') . '">' ?>
+</form>
+
 <!-- Styles synchronisation temps réel -->
 <style>
 .document-viewers { display: inline-flex; align-items: center; margin-right: 15px; }
@@ -267,7 +282,27 @@ ob_start();
 .sync-dot { width: 8px; height: 8px; background: #10B981; border-radius: 50%; animation: pulse 1.5s infinite; }
 @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.7; } }
 .zone-item.sync-new { animation: flashNew 0.5s ease 3; }
+.zone-item.sync-deleted, .annotation-item.sync-deleted { 
+    animation: fadeOutDelete 0.3s ease forwards; 
+    pointer-events: none;
+}
+@keyframes fadeOutDelete {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(-20px); }
+}
 @keyframes flashNew { 0%, 100% { background: var(--bg-secondary); } 50% { background: rgba(16, 185, 129, 0.3); } }
+
+/* Bouton danger */
+.btn-danger { 
+    background: linear-gradient(135deg, #EF4444, #DC2626) !important; 
+    color: white !important; 
+    border: none !important; 
+}
+.btn-danger:hover { 
+    background: linear-gradient(135deg, #DC2626, #B91C1C) !important; 
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
 </style>
 
 <script>
@@ -284,7 +319,9 @@ const LANG = {
     select_user: '<?= _t('select_user') ?>', 
     notification_sent: '<?= _t('notification_sent') ?>', 
     entire_document: '<?= _t('entire_document') ?>', 
-    sync_updated: '<?= _t('sync_updated') ?>' 
+    sync_updated: '<?= _t('sync_updated') ?>',
+    sync_deleted: '<?= _t('sync_deleted') ?>',
+    delete_document_confirm: '<?= _t('delete_document_confirm') ?>'
 };
 
 let pdfDoc = null, currentPage = 1, totalPages = 0, scale = 1.5, renderScale = window.devicePixelRatio || 2;
@@ -625,7 +662,17 @@ let syncTimer = null, viewersTimer = null, isSyncActive = true;
 async function pollSyncUpdates() {
     if (!isSyncActive) return;
     try {
-        const response = await fetch(`/api/documents/sync?document_id=${DOCUMENT_ID}&since=${encodeURIComponent(lastSyncTimestamp)}`);
+        // Collecter les IDs des zones et annotations connues
+        const zoneIds = zones.map(z => z.id).join(',');
+        const annotationIds = Array.from(document.querySelectorAll('[data-annotation-id]'))
+            .map(el => el.dataset.annotationId).join(',');
+        
+        // Construire l'URL avec les IDs connus pour détecter les suppressions
+        let url = `/api/documents/sync?document_id=${DOCUMENT_ID}&since=${encodeURIComponent(lastSyncTimestamp)}`;
+        if (zoneIds) url += `&zone_ids=${zoneIds}`;
+        if (annotationIds) url += `&annotation_ids=${annotationIds}`;
+        
+        const response = await fetch(url);
         const data = await response.json();
         if (data.success) {
             lastSyncTimestamp = data.timestamp;
@@ -639,8 +686,11 @@ async function pollSyncUpdates() {
 
 function processSyncUpdates(updates) {
     let hasNew = false;
+    let hasDeleted = false;
     
-    // Traiter les nouvelles zones
+    // ==========================================
+    // TRAITER LES NOUVELLES ZONES
+    // ==========================================
     if (updates.zones && updates.zones.length > 0) {
         updates.zones.forEach(zone => {
             // Vérifier si la zone existe déjà
@@ -672,7 +722,38 @@ function processSyncUpdates(updates) {
         }
     }
     
-    // Traiter les nouvelles annotations
+    // ==========================================
+    // TRAITER LES ZONES SUPPRIMÉES
+    // ==========================================
+    if (updates.deleted_zones && updates.deleted_zones.length > 0) {
+        updates.deleted_zones.forEach(zoneId => {
+            console.log('[Sync] Zone supprimée par un autre utilisateur:', zoneId);
+            
+            // Supprimer de l'array zones
+            const index = zones.findIndex(z => z.id == zoneId);
+            if (index > -1) {
+                zones.splice(index, 1);
+            }
+            
+            // Supprimer de la sidebar
+            const sidebarItem = document.querySelector(`[data-zone-id="${zoneId}"]`);
+            if (sidebarItem) {
+                sidebarItem.classList.add('sync-deleted');
+                setTimeout(() => sidebarItem.remove(), 300);
+            }
+            
+            hasDeleted = true;
+        });
+        
+        // Re-dessiner les zones après suppression
+        if (hasDeleted) {
+            renderZones();
+        }
+    }
+    
+    // ==========================================
+    // TRAITER LES NOUVELLES ANNOTATIONS
+    // ==========================================
     if (updates.annotations && updates.annotations.length > 0) {
         updates.annotations.forEach(ann => {
             if (!document.querySelector(`[data-annotation-id="${ann.id}"]`)) { 
@@ -682,9 +763,31 @@ function processSyncUpdates(updates) {
         });
     }
     
-    // Afficher notification
+    // ==========================================
+    // TRAITER LES ANNOTATIONS SUPPRIMÉES
+    // ==========================================
+    if (updates.deleted_annotations && updates.deleted_annotations.length > 0) {
+        updates.deleted_annotations.forEach(annId => {
+            console.log('[Sync] Annotation supprimée par un autre utilisateur:', annId);
+            
+            const annItem = document.querySelector(`[data-annotation-id="${annId}"]`);
+            if (annItem) {
+                annItem.classList.add('sync-deleted');
+                setTimeout(() => annItem.remove(), 300);
+            }
+            
+            hasDeleted = true;
+        });
+    }
+    
+    // ==========================================
+    // AFFICHER NOTIFICATION
+    // ==========================================
     if (hasNew) {
         showSyncNotification(LANG.sync_updated);
+    }
+    if (hasDeleted) {
+        showSyncNotification(LANG.sync_deleted || 'Element deleted by a collaborator');
     }
 }
 
@@ -855,6 +958,18 @@ window.addEventListener('beforeunload', () => {
     stopRealTimeSync(); 
     navigator.sendBeacon('/api/documents/leave', JSON.stringify({ document_id: DOCUMENT_ID })); 
 });
+
+// ==========================================
+// DÉMARRAGE
+// ==========================================
+// ==========================================
+// SUPPRESSION DU DOCUMENT
+// ==========================================
+function confirmDeleteDocument(docId) {
+    if (confirm(LANG.delete_document_confirm)) {
+        document.getElementById('deleteDocumentForm').submit();
+    }
+}
 
 // ==========================================
 // DÉMARRAGE
