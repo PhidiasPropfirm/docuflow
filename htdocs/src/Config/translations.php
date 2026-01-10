@@ -259,6 +259,23 @@ return [
         'user_updated' => 'Utilisateur mis à jour.',
         'never_connected' => 'Jamais connecté',
         
+        // Formulaire utilisateur
+        'back_to_users' => 'Retour aux utilisateurs',
+        'personal_info' => 'Informations personnelles',
+        'security' => 'Sécurité',
+        'role_and_team' => 'Rôle et équipe',
+        'username' => 'Nom d\'utilisateur',
+        'username_hint' => 'Lettres, chiffres et underscores uniquement',
+        'password_leave_empty' => 'Laissez le mot de passe vide pour ne pas le modifier',
+        'password_min_chars' => 'Minimum 8 caractères',
+        'confirm_password' => 'Confirmer le mot de passe',
+        'role_member' => 'Membre',
+        'role_admin' => 'Administrateur',
+        'admin_access_hint' => 'Les administrateurs ont accès à la gestion des utilisateurs et équipes',
+        'user_active_hint' => 'Les utilisateurs inactifs ne peuvent pas se connecter',
+        'create_user' => 'Créer l\'utilisateur',
+        'passwords_not_match' => 'Les mots de passe ne correspondent pas',
+        
         // ==========================================
         // ÉQUIPES
         // ==========================================
@@ -833,6 +850,23 @@ return [
         'user_created' => 'User created successfully.',
         'user_updated' => 'User updated.',
         'never_connected' => 'Never connected',
+        
+        // User form
+        'back_to_users' => 'Back to users',
+        'personal_info' => 'Personal information',
+        'security' => 'Security',
+        'role_and_team' => 'Role and team',
+        'username' => 'Username',
+        'username_hint' => 'Letters, numbers and underscores only',
+        'password_leave_empty' => 'Leave password empty to keep current',
+        'password_min_chars' => 'Minimum 8 characters',
+        'confirm_password' => 'Confirm password',
+        'role_member' => 'Member',
+        'role_admin' => 'Administrator',
+        'admin_access_hint' => 'Administrators have access to user and team management',
+        'user_active_hint' => 'Inactive users cannot log in',
+        'create_user' => 'Create user',
+        'passwords_not_match' => 'Passwords do not match',
         
         // ==========================================
         // TEAMS

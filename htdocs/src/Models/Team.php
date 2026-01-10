@@ -2,13 +2,15 @@
 /**
  * DocuFlow - Modèle Team
  * Gestion des équipes
+ * 
+ * CORRECTION: Requête SQL corrigée pour éviter les doublons avec GROUP BY
  */
 
 namespace App\Models;
 
 class Team extends BaseModel {
     protected string $table = 'teams';
-    protected array $fillable = ['name', 'description', 'color'];
+    protected array $fillable = ['name', 'name_en', 'description', 'description_en', 'color'];
     
     /**
      * Récupère une équipe avec ses membres
@@ -31,15 +33,31 @@ class Team extends BaseModel {
     
     /**
      * Récupère toutes les équipes avec le nombre de membres
+     * CORRIGÉ: Utilise une sous-requête pour éviter les problèmes de GROUP BY
      */
     public function allWithMemberCount(): array {
-        $sql = "SELECT t.*, COUNT(u.id) as member_count 
-                FROM {$this->table} t 
-                LEFT JOIN users u ON t.id = u.team_id AND u.is_active = 1 
-                GROUP BY t.id 
+        $sql = "SELECT t.*,
+                       (SELECT COUNT(*) FROM users u WHERE u.team_id = t.id AND u.is_active = 1) as member_count,
+                       (SELECT COUNT(*) FROM documents d WHERE d.team_id = t.id) as document_count
+                FROM {$this->table} t
                 ORDER BY t.name";
         $stmt = $this->db->query($sql);
-        return $stmt->fetchAll();
+        $teams = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        // Récupérer les membres pour chaque équipe
+        foreach ($teams as $key => $team) {
+            $membersStmt = $this->db->prepare("
+                SELECT id, first_name, last_name, email 
+                FROM users 
+                WHERE team_id = ? AND is_active = 1
+                ORDER BY last_name, first_name
+                LIMIT 10
+            ");
+            $membersStmt->execute([$team['id']]);
+            $teams[$key]['members'] = $membersStmt->fetchAll(\PDO::FETCH_ASSOC);
+        }
+        
+        return $teams;
     }
     
     /**
@@ -105,5 +123,59 @@ class Team extends BaseModel {
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return (int) $stmt->fetch()['count'] > 0;
+    }
+    
+    /**
+     * Retire tous les utilisateurs d'une équipe (met team_id à NULL)
+     */
+    public function removeUsersFromTeam(int $teamId): bool {
+        $sql = "UPDATE users SET team_id = NULL WHERE team_id = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$teamId]);
+    }
+    
+    /**
+     * Crée une équipe
+     */
+    public function create(array $data): int {
+        $sql = "INSERT INTO {$this->table} (name, name_en, description, description_en, color, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, NOW(), NOW())";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            $data['name'] ?? '',
+            $data['name_en'] ?? null,
+            $data['description'] ?? null,
+            $data['description_en'] ?? null,
+            $data['color'] ?? '#3B82F6'
+        ]);
+        return (int) $this->db->lastInsertId();
+    }
+    
+    /**
+     * Met à jour une équipe
+     */
+    public function update(int $id, array $data): bool {
+        $fields = [];
+        $values = [];
+        
+        $allowedFields = ['name', 'name_en', 'description', 'description_en', 'color'];
+        
+        foreach ($allowedFields as $field) {
+            if (array_key_exists($field, $data)) {
+                $fields[] = "{$field} = ?";
+                $values[] = $data[$field];
+            }
+        }
+        
+        if (empty($fields)) {
+            return false;
+        }
+        
+        $fields[] = "updated_at = NOW()";
+        $values[] = $id;
+        
+        $sql = "UPDATE {$this->table} SET " . implode(', ', $fields) . " WHERE id = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute($values);
     }
 }
