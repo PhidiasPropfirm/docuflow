@@ -472,6 +472,34 @@ return [
         'time_ago' => 'il y a',
         
         // ==========================================
+        // RÉINITIALISATION COMPLÈTE
+        // ==========================================
+        'reset_all_btn' => 'Tout supprimer',
+        'reset_session_info' => 'Fin de séance de travail ?',
+        'reset_all_title' => 'Réinitialisation complète',
+        'reset_warning_title' => 'Action irréversible',
+        'reset_warning_irreversible' => 'Cette action est définitive et ne peut pas être annulée. Toutes les données seront perdues.',
+        'reset_what_deleted' => 'Les éléments suivants seront supprimés :',
+        'reset_all_documents' => 'Tous les fichiers PDF et leurs métadonnées',
+        'reset_all_zones' => 'Toutes les zones définies sur les documents',
+        'reset_all_annotations' => 'Toutes les annotations et commentaires',
+        'reset_all_links' => 'Toutes les liaisons entre documents',
+        'reset_all_activity' => 'L\'historique complet des activités',
+        'reset_all_chat' => 'Tous les messages du chat collaboratif',
+        'reset_when_use' => 'Quand utiliser cette fonction ?',
+        'reset_when_use_desc' => 'Cette fonction est prévue pour réinitialiser l\'espace de travail lorsqu\'une séance de travail sur les documents est terminée et que vous souhaitez repartir à zéro.',
+        'reset_all_users_warning' => 'Attention : Tous les utilisateurs concernés',
+        'reset_all_users_desc' => 'Cette suppression affecte TOUS les utilisateurs de la plateforme, pas seulement votre compte.',
+        'reset_confirm_label' => 'Pour confirmer, tapez :',
+        'reset_confirm_placeholder' => 'Tapez le code de confirmation',
+        'reset_confirm_btn' => 'Supprimer définitivement',
+        'reset_invalid_code' => 'Code de confirmation invalide. Veuillez saisir exactement ERASE-ALL',
+        'reset_final_confirm' => 'DERNIÈRE CONFIRMATION : Êtes-vous absolument certain de vouloir supprimer TOUTES les données ? Cette action est IRRÉVERSIBLE.',
+        'reset_success' => 'Réinitialisation terminée. Toutes les données ont été supprimées.',
+        'reset_error' => 'Une erreur est survenue lors de la réinitialisation.',
+        'activity_reset_all' => 'Réinitialisation complète du système',
+        
+        // ==========================================
         // MESSAGES FLASH
         // ==========================================
         'success' => 'Succès',
@@ -488,6 +516,7 @@ return [
         // ==========================================
         'profile' => 'Profil',
         'profile_title' => 'Mon profil',
+        'profile_subtitle' => 'Gérez vos informations personnelles et vos paramètres',
         'profile_edit' => 'Modifier mon profil',
         'profile_password' => 'Changer le mot de passe',
         'current_password' => 'Mot de passe actuel',
@@ -497,6 +526,13 @@ return [
         'password_incorrect' => 'Le mot de passe actuel est incorrect.',
         'personal_info' => 'Informations personnelles',
         'security' => 'Sécurité',
+        'member_since' => 'Membre depuis',
+        'last_login' => 'Dernière connexion',
+        'username_readonly' => 'Le nom d\'utilisateur ne peut pas être modifié',
+        'notif_new_documents' => 'Nouveaux documents',
+        'notif_new_documents_desc' => 'Recevoir une notification quand un document est ajouté',
+        'notif_annotations_desc' => 'Recevoir une notification pour les nouvelles annotations',
+        'notif_links_desc' => 'Recevoir une notification quand une liaison est créée vers vos documents',
         
         // ==========================================
         // NOTIFICATIONS
@@ -507,6 +543,21 @@ return [
         'notification_mention' => ':user vous a mentionné sur une zone',
         'notification_annotation' => ':user a commenté un document',
         'notification_link' => ':user a créé une liaison',
+        
+        // Titres de notifications (pour traduction dynamique)
+        'notif_title_new_link' => 'Nouvelle liaison',
+        'notif_title_new_document' => 'Nouveau document',
+        'notif_title_new_annotation' => 'Nouvelle annotation',
+        'notif_title_mention' => 'Mention',
+        'notif_title_document_updated' => 'Document mis à jour',
+        'notif_title_system_reset' => 'Réinitialisation système',
+        
+        // Descriptions de notifications (patterns pour traduction)
+        'notif_desc_created_link' => 'a créé une liaison entre documents',
+        'notif_desc_added_document' => 'a ajouté un nouveau document',
+        'notif_desc_added_annotation' => 'a ajouté une annotation',
+        'notif_desc_mentioned_you' => 'vous a mentionné',
+        'notif_desc_updated_document' => 'a mis à jour un document',
         
         // ==========================================
         // SYNCHRONISATION
@@ -1050,6 +1101,34 @@ return [
         'time_ago' => 'ago',
         
         // ==========================================
+        // FULL RESET
+        // ==========================================
+        'reset_all_btn' => 'Delete all',
+        'reset_session_info' => 'End of work session?',
+        'reset_all_title' => 'Full reset',
+        'reset_warning_title' => 'Irreversible action',
+        'reset_warning_irreversible' => 'This action is permanent and cannot be undone. All data will be lost.',
+        'reset_what_deleted' => 'The following items will be deleted:',
+        'reset_all_documents' => 'All PDF files and their metadata',
+        'reset_all_zones' => 'All zones defined on documents',
+        'reset_all_annotations' => 'All annotations and comments',
+        'reset_all_links' => 'All links between documents',
+        'reset_all_activity' => 'The complete activity history',
+        'reset_all_chat' => 'All collaborative chat messages',
+        'reset_when_use' => 'When to use this feature?',
+        'reset_when_use_desc' => 'This feature is intended to reset the workspace when a document work session is finished and you want to start fresh.',
+        'reset_all_users_warning' => 'Warning: All users affected',
+        'reset_all_users_desc' => 'This deletion affects ALL users of the platform, not just your account.',
+        'reset_confirm_label' => 'To confirm, type:',
+        'reset_confirm_placeholder' => 'Type the confirmation code',
+        'reset_confirm_btn' => 'Delete permanently',
+        'reset_invalid_code' => 'Invalid confirmation code. Please type exactly ERASE-ALL',
+        'reset_final_confirm' => 'FINAL CONFIRMATION: Are you absolutely sure you want to delete ALL data? This action is IRREVERSIBLE.',
+        'reset_success' => 'Reset complete. All data has been deleted.',
+        'reset_error' => 'An error occurred during reset.',
+        'activity_reset_all' => 'Full system reset',
+        
+        // ==========================================
         // FLASH MESSAGES
         // ==========================================
         'success' => 'Success',
@@ -1066,6 +1145,7 @@ return [
         // ==========================================
         'profile' => 'Profile',
         'profile_title' => 'My profile',
+        'profile_subtitle' => 'Manage your personal information and settings',
         'profile_edit' => 'Edit my profile',
         'profile_password' => 'Change password',
         'current_password' => 'Current password',
@@ -1075,6 +1155,13 @@ return [
         'password_incorrect' => 'Current password is incorrect.',
         'personal_info' => 'Personal information',
         'security' => 'Security',
+        'member_since' => 'Member since',
+        'last_login' => 'Last login',
+        'username_readonly' => 'Username cannot be changed',
+        'notif_new_documents' => 'New documents',
+        'notif_new_documents_desc' => 'Get notified when a document is added',
+        'notif_annotations_desc' => 'Get notified for new annotations',
+        'notif_links_desc' => 'Get notified when a link is created to your documents',
         
         // ==========================================
         // NOTIFICATIONS
@@ -1085,6 +1172,21 @@ return [
         'notification_mention' => ':user mentioned you on a zone',
         'notification_annotation' => ':user commented on a document',
         'notification_link' => ':user created a link',
+        
+        // Notification titles (for dynamic translation)
+        'notif_title_new_link' => 'New link',
+        'notif_title_new_document' => 'New document',
+        'notif_title_new_annotation' => 'New annotation',
+        'notif_title_mention' => 'Mention',
+        'notif_title_document_updated' => 'Document updated',
+        'notif_title_system_reset' => 'System reset',
+        
+        // Notification descriptions (patterns for translation)
+        'notif_desc_created_link' => 'created a link between documents',
+        'notif_desc_added_document' => 'added a new document',
+        'notif_desc_added_annotation' => 'added an annotation',
+        'notif_desc_mentioned_you' => 'mentioned you',
+        'notif_desc_updated_document' => 'updated a document',
         
         // ==========================================
         // SYNC

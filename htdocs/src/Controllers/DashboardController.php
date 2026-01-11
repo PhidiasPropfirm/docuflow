@@ -1,6 +1,7 @@
 <?php
 /**
  * DocuFlow - Contrôleur Dashboard
+ * Avec fonction de réinitialisation complète
  */
 
 namespace App\Controllers;
@@ -110,6 +111,115 @@ class DashboardController {
     }
     
     /**
+     * Réinitialisation complète - Supprime toutes les données de session de travail
+     * (documents, zones, annotations, activités, chat) pour TOUS les utilisateurs
+     */
+    public function resetAll(): void {
+        AuthController::requireAuth();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect('/dashboard');
+        }
+        
+        if (!verify_csrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
+            flash('error', __('session_expired') ?? 'Session expirée.');
+            redirect('/dashboard');
+        }
+        
+        // Vérification du code de confirmation
+        $confirmCode = $_POST['confirm_code'] ?? '';
+        if ($confirmCode !== 'ERASE-ALL') {
+            flash('error', __('reset_invalid_code') ?? 'Code de confirmation invalide.');
+            redirect('/dashboard');
+        }
+        
+        try {
+            $db = \Database::getInstance();
+            
+            // Désactiver les vérifications de clés étrangères temporairement
+            $db->exec("SET FOREIGN_KEY_CHECKS = 0");
+            
+            // Liste des tables à vider (dans l'ordre)
+            $tables = [
+                'chat_messages',      // Messages chat
+                'notifications',      // Notifications
+                'activity_log',       // Historique activité
+                'annotations',        // Annotations
+                'document_links',     // Liaisons
+                'document_zones',     // Zones
+                'document_pages',     // Contenu pages (peut ne pas exister)
+            ];
+            
+            // Vider chaque table (ignorer si elle n'existe pas)
+            foreach ($tables as $table) {
+                try {
+                    $db->exec("DELETE FROM `{$table}`");
+                } catch (\Exception $e) {
+                    // Table n'existe pas, on continue
+                }
+            }
+            
+            // Supprimer les fichiers physiques des documents AVANT de vider la table
+            $this->deleteAllDocumentFiles();
+            
+            // Vider la table documents
+            try {
+                $db->exec("DELETE FROM documents");
+            } catch (\Exception $e) {
+                // Ignorer l'erreur
+            }
+            
+            // Réactiver les vérifications de clés étrangères
+            $db->exec("SET FOREIGN_KEY_CHECKS = 1");
+            
+            // Réinitialiser les auto-increments (ignorer les erreurs)
+            $autoIncrementTables = ['documents', 'document_zones', 'document_links', 'annotations', 'activity_log', 'notifications', 'chat_messages'];
+            foreach ($autoIncrementTables as $table) {
+                try {
+                    $db->exec("ALTER TABLE `{$table}` AUTO_INCREMENT = 1");
+                } catch (\Exception $e) {
+                    // Table n'existe pas, on continue
+                }
+            }
+            
+            // Enregistrer cette action (nouvelle entrée dans le log)
+            try {
+                $this->activityLog->log(
+                    'reset_all', 
+                    'system', 
+                    null, 
+                    __('activity_reset_all') ?? 'Réinitialisation complète du système'
+                );
+            } catch (\Exception $e) {
+                // Ignorer si ça échoue
+            }
+            
+            flash('success', __('reset_success') ?? 'Toutes les données ont été supprimées avec succès.');
+            
+        } catch (\Exception $e) {
+            flash('error', (__('reset_error') ?? 'Une erreur est survenue lors de la réinitialisation.') . ' ' . $e->getMessage());
+        }
+        
+        redirect('/dashboard');
+    }
+    
+    /**
+     * Supprime tous les fichiers physiques des documents
+     */
+    private function deleteAllDocumentFiles(): void {
+        $uploadDir = UPLOAD_DIR;
+        
+        if (is_dir($uploadDir)) {
+            $files = glob($uploadDir . '*');
+            foreach ($files as $file) {
+                if (is_file($file) && basename($file) !== '.gitkeep' && basename($file) !== 'index.html') {
+                    @unlink($file);
+                }
+            }
+        }
+    }
+    
+    /**
      * API: Récupère les notifications
      */
     public function getNotifications(): void {
@@ -119,11 +229,56 @@ class DashboardController {
         $notifications = $this->notificationModel->getByUser(currentUserId(), 20);
         $unreadCount = $this->notificationModel->countUnread(currentUserId());
         
+        // Traduire les notifications
+        $notifications = array_map(function($notif) {
+            $notif['title'] = $this->translateNotificationTitle($notif['title'] ?? '');
+            $notif['message'] = $this->translateNotificationMessage($notif['message'] ?? '');
+            return $notif;
+        }, $notifications);
+        
         echo json_encode([
             'success' => true,
             'notifications' => $notifications,
             'unread_count' => $unreadCount
         ]);
+    }
+    
+    /**
+     * Traduit le titre d'une notification
+     */
+    private function translateNotificationTitle(string $title): string {
+        $titleMap = [
+            'Nouvelle liaison' => __('notif_title_new_link'),
+            'Nouveau document' => __('notif_title_new_document'),
+            'Nouvelle annotation' => __('notif_title_new_annotation'),
+            'Mention' => __('notif_title_mention'),
+            'Document mis à jour' => __('notif_title_document_updated'),
+            'Réinitialisation système' => __('notif_title_system_reset'),
+        ];
+        
+        return $titleMap[$title] ?? $title;
+    }
+    
+    /**
+     * Traduit le message d'une notification
+     */
+    private function translateNotificationMessage(string $message): string {
+        // Patterns français -> anglais
+        $patterns = [
+            '/^(.+) a créé une liaison entre documents$/' => '$1 ' . __('notif_desc_created_link'),
+            '/^(.+) a ajouté un nouveau document: (.+)$/' => '$1 ' . __('notif_desc_added_document') . ': $2',
+            '/^(.+) a ajouté une annotation$/' => '$1 ' . __('notif_desc_added_annotation'),
+            '/^(.+) vous a mentionné$/' => '$1 ' . __('notif_desc_mentioned_you'),
+            '/^(.+) a mis à jour un document$/' => '$1 ' . __('notif_desc_updated_document'),
+        ];
+        
+        foreach ($patterns as $pattern => $replacement) {
+            if (preg_match($pattern, $message)) {
+                return preg_replace($pattern, $replacement, $message);
+            }
+        }
+        
+        return $message;
     }
     
     /**
@@ -161,14 +316,25 @@ class DashboardController {
         AuthController::requireAuth();
         header('Content-Type: application/json');
         
-        $since = $_GET['since'] ?? date('Y-m-d H:i:s', strtotime('-1 minute'));
+        $since = $_GET['since'] ?? null;
+        $notifications = [];
         
-        $newNotifications = $this->notificationModel->getNewSince(currentUserId(), $since);
+        if ($since) {
+            $notifications = $this->notificationModel->getNewSince(currentUserId(), $since);
+            
+            // Traduire les notifications
+            $notifications = array_map(function($notif) {
+                $notif['title'] = $this->translateNotificationTitle($notif['title'] ?? '');
+                $notif['message'] = $this->translateNotificationMessage($notif['message'] ?? '');
+                return $notif;
+            }, $notifications);
+        }
+        
         $unreadCount = $this->notificationModel->countUnread(currentUserId());
         
         echo json_encode([
             'success' => true,
-            'notifications' => $newNotifications,
+            'notifications' => $notifications,
             'unread_count' => $unreadCount,
             'timestamp' => date('Y-m-d H:i:s')
         ]);

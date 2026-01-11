@@ -347,10 +347,51 @@ class UserController {
         AuthController::requireAuth();
         
         $user = currentUser();
+        $userId = currentUserId();
         $team = $user['team_id'] ? $this->teamModel->find($user['team_id']) : null;
-        $activity = $this->activityLog->getByUser(currentUserId(), 20);
+        $activity = $this->activityLog->getByUser($userId, 20);
+        
+        // Statistiques de l'utilisateur
+        $stats = $this->getUserStats($userId);
         
         require __DIR__ . '/../Views/pages/profile.php';
+    }
+    
+    /**
+     * Récupère les statistiques d'un utilisateur
+     */
+    private function getUserStats(int $userId): array {
+        try {
+            $db = \Database::getInstance();
+            
+            // Documents uploadés par l'utilisateur
+            $stmtDocs = $db->prepare("SELECT COUNT(*) as count FROM documents WHERE user_id = ?");
+            $stmtDocs->execute([$userId]);
+            $documents = (int) $stmtDocs->fetch()['count'];
+            
+            // Annotations créées par l'utilisateur
+            $stmtAnnot = $db->prepare("SELECT COUNT(*) as count FROM annotations WHERE user_id = ?");
+            $stmtAnnot->execute([$userId]);
+            $annotations = (int) $stmtAnnot->fetch()['count'];
+            
+            // Liaisons créées par l'utilisateur
+            $stmtLinks = $db->prepare("SELECT COUNT(*) as count FROM document_links WHERE created_by = ?");
+            $stmtLinks->execute([$userId]);
+            $links = (int) $stmtLinks->fetch()['count'];
+            
+            return [
+                'documents' => $documents,
+                'annotations' => $annotations,
+                'links' => $links
+            ];
+        } catch (\Exception $e) {
+            // En cas d'erreur, retourner des valeurs par défaut
+            return [
+                'documents' => 0,
+                'annotations' => 0,
+                'links' => 0
+            ];
+        }
     }
     
     /**

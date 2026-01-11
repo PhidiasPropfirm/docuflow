@@ -45,6 +45,7 @@ $router->get('/', 'App\Controllers\DashboardController', 'index');
 $router->get('/dashboard', 'App\Controllers\DashboardController', 'index');
 $router->get('/search', 'App\Controllers\DashboardController', 'search');
 $router->get('/activity', 'App\Controllers\DashboardController', 'activity');
+$router->post('/admin/reset-all', 'App\Controllers\DashboardController', 'resetAll');
 
 // API Notifications
 $router->get('/api/notifications', 'App\Controllers\DashboardController', 'getNotifications');

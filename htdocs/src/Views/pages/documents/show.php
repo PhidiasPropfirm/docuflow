@@ -33,8 +33,7 @@ $docuflowTranslations = [
         'delete_zone_confirm' => 'Supprimer cette zone ?', 'ocr_confirm' => 'Lancer l\'OCR sur tout le document ?',
         'ocr_complete' => 'OCR terminé !', 'error_zone_not_found' => 'Zone introuvable',
         'content_required' => 'Contenu requis', 'sync_updated' => 'Document mis à jour par un collaborateur',
-        'sync_deleted' => 'Élément supprimé par un collaborateur',
-        'delete_document_confirm' => 'Supprimer ce document ? Cette action est irréversible.',
+        'delete_link_confirm' => 'Supprimer cette liaison ?',
     ],
     'en' => [
         'zones' => 'Zones', 'zone' => 'Zone', 'links' => 'Links', 'notes' => 'Notes', 'info' => 'Info',
@@ -63,8 +62,7 @@ $docuflowTranslations = [
         'delete_zone_confirm' => 'Delete this zone?', 'ocr_confirm' => 'Run OCR on the entire document?',
         'ocr_complete' => 'OCR complete!', 'error_zone_not_found' => 'Zone not found',
         'content_required' => 'Content required', 'sync_updated' => 'Document updated by a collaborator',
-        'sync_deleted' => 'Element deleted by a collaborator',
-        'delete_document_confirm' => 'Delete this document? This action cannot be undone.',
+        'delete_link_confirm' => 'Delete this link?',
     ]
 ];
 
@@ -102,7 +100,7 @@ ob_start();
             </div>
         </div>
         <div class="document-header-actions">
-            <!-- Indicateur des viewers (sync temps réel) -->
+            <!-- Indicateur des viewers (synchronisation temps réel) -->
             <div id="documentViewers" class="document-viewers"></div>
             
             <button class="btn btn-ghost btn-sm" onclick="toggleOCR()" title="<?= _t('run_ocr') ?>">
@@ -111,12 +109,6 @@ ob_start();
             <a href="/uploads/<?= $document['filename'] ?? '' ?>" download class="btn btn-ghost btn-sm">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> <?= _t('download') ?>
             </a>
-            <a href="/documents/<?= $document['id'] ?>/edit" class="btn btn-ghost btn-sm">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> <?= _t('edit') ?>
-            </a>
-            <button class="btn btn-danger btn-sm" onclick="confirmDeleteDocument(<?= $document['id'] ?>)">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> <?= _t('delete') ?>
-            </button>
         </div>
     </div>
     
@@ -178,12 +170,44 @@ ob_start();
                 
                 <!-- Tab Links -->
                 <div class="tab-content" id="tab-links">
-                    <div class="tab-header"><h3><?= _t('links') ?></h3><span class="badge"><?= count($linksFrom) + count($linksTo) ?></span></div>
-                    <?php if (!empty($linksFrom)): ?><div class="links-section"><h4><?= _t('points_to') ?></h4>
-                    <?php foreach ($linksFrom as $link): ?><div class="link-item-detailed outgoing"><div class="link-source" onclick="focusZone(<?= $link['source_zone_id'] ?>)"><span>📍</span><span><?= htmlspecialchars($link['source_zone_label'] ?? _t('zone') . ' ' . $link['source_zone_id']) ?></span></div><div class="link-arrow">→</div><a href="/documents/<?= $link['target_doc_id'] ?>"><?= htmlspecialchars($link['target_doc_title']) ?></a></div><?php endforeach; ?></div><?php endif; ?>
-                    <?php if (!empty($linksTo)): ?><div class="links-section"><h4><?= _t('pointed_by') ?></h4>
-                    <?php foreach ($linksTo as $link): ?><div class="link-item-detailed incoming"><a href="/documents/<?= $link['source_doc_id'] ?>"><?= htmlspecialchars($link['source_doc_title']) ?></a><div class="link-arrow">→</div><div><?= _t('document') ?></div></div><?php endforeach; ?></div><?php endif; ?>
-                    <?php if (empty($linksFrom) && empty($linksTo)): ?><div class="empty-state small"><p><?= _t('no_links') ?></p></div><?php endif; ?>
+                    <div class="tab-header"><h3><?= _t('links') ?></h3><span class="badge" id="linksBadge"><?= count($linksFrom) + count($linksTo) ?></span></div>
+                    <?php if (!empty($linksFrom)): ?>
+                    <div class="links-section">
+                        <h4><?= _t('points_to') ?></h4>
+                        <?php foreach ($linksFrom as $link): ?>
+                        <div class="link-item-detailed outgoing" data-link-id="<?= $link['id'] ?>">
+                            <div class="link-content">
+                                <div class="link-source" onclick="focusZone(<?= $link['source_zone_id'] ?>)">
+                                    <span>📍</span>
+                                    <span><?= htmlspecialchars($link['source_zone_label'] ?? _t('zone') . ' ' . $link['source_zone_id']) ?></span>
+                                </div>
+                                <div class="link-arrow">→</div>
+                                <a href="/documents/<?= $link['target_doc_id'] ?>"><?= htmlspecialchars($link['target_doc_title']) ?></a>
+                            </div>
+                            <button class="link-delete-btn" onclick="event.stopPropagation(); deleteLink(<?= $link['id'] ?>)" title="<?= _t('delete') ?>">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (!empty($linksTo)): ?>
+                    <div class="links-section">
+                        <h4><?= _t('pointed_by') ?></h4>
+                        <?php foreach ($linksTo as $link): ?>
+                        <div class="link-item-detailed incoming">
+                            <div class="link-content">
+                                <a href="/documents/<?= $link['source_doc_id'] ?>"><?= htmlspecialchars($link['source_doc_title']) ?></a>
+                                <div class="link-arrow">→</div>
+                                <div><?= _t('document') ?></div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (empty($linksFrom) && empty($linksTo)): ?>
+                    <div class="empty-state small"><p><?= _t('no_links') ?></p></div>
+                    <?php endif; ?>
                 </div>
                 
                 <!-- Tab Annotations -->
@@ -261,12 +285,7 @@ ob_start();
 <div class="modal-footer"><button onclick="closeMentionModal()" class="btn btn-ghost"><?= _t('cancel') ?></button><button onclick="sendMention()" class="btn btn-primary"><?= _t('send_notification') ?></button></div>
 </div></div>
 
-<!-- Formulaire de suppression caché -->
-<form id="deleteDocumentForm" action="/documents/<?= $document['id'] ?>/delete" method="POST" style="display:none;">
-    <?= function_exists('csrf_field') ? csrf_field() : '<input type="hidden" name="csrf_token" value="' . ($_SESSION['csrf_token'] ?? '') . '">' ?>
-</form>
-
-<!-- Styles synchronisation temps réel -->
+<!-- Styles pour la synchronisation et liaisons -->
 <style>
 .document-viewers { display: inline-flex; align-items: center; margin-right: 15px; }
 .viewers-avatars { display: flex; }
@@ -282,27 +301,20 @@ ob_start();
 .sync-dot { width: 8px; height: 8px; background: #10B981; border-radius: 50%; animation: pulse 1.5s infinite; }
 @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.7; } }
 .zone-item.sync-new { animation: flashNew 0.5s ease 3; }
-.zone-item.sync-deleted, .annotation-item.sync-deleted { 
-    animation: fadeOutDelete 0.3s ease forwards; 
-    pointer-events: none;
-}
-@keyframes fadeOutDelete {
-    from { opacity: 1; transform: translateX(0); }
-    to { opacity: 0; transform: translateX(-20px); }
-}
 @keyframes flashNew { 0%, 100% { background: var(--bg-secondary); } 50% { background: rgba(16, 185, 129, 0.3); } }
 
-/* Bouton danger */
-.btn-danger { 
-    background: linear-gradient(135deg, #EF4444, #DC2626) !important; 
-    color: white !important; 
-    border: none !important; 
-}
-.btn-danger:hover { 
-    background: linear-gradient(135deg, #DC2626, #B91C1C) !important; 
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-}
+/* Styles pour les liaisons avec bouton supprimer */
+.link-item-detailed { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--border-radius); margin-bottom: 0.5rem; transition: all 0.2s ease; }
+.link-item-detailed:hover { background: var(--bg-tertiary); }
+.link-item-detailed .link-content { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
+.link-item-detailed .link-source { display: flex; align-items: center; gap: 0.25rem; cursor: pointer; color: var(--primary); }
+.link-item-detailed .link-source:hover { text-decoration: underline; }
+.link-item-detailed .link-arrow { color: var(--text-muted); flex-shrink: 0; }
+.link-item-detailed a { color: var(--text-primary); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-item-detailed a:hover { color: var(--primary); text-decoration: underline; }
+.link-delete-btn { opacity: 0; background: none; border: none; color: var(--danger, #EF4444); cursor: pointer; padding: 0.25rem; border-radius: 4px; transition: all 0.2s ease; flex-shrink: 0; }
+.link-item-detailed:hover .link-delete-btn { opacity: 1; }
+.link-delete-btn:hover { background: rgba(239, 68, 68, 0.1); transform: scale(1.1); }
 </style>
 
 <script>
@@ -311,6 +323,7 @@ const PDF_URL = '/uploads/<?= rawurlencode($document['filename'] ?? '') ?>';
 const LANG = { 
     zone: '<?= _t('zone') ?>', 
     delete_zone_confirm: '<?= _t('delete_zone_confirm') ?>', 
+    delete_link_confirm: '<?= _t('delete_link_confirm') ?>',
     ocr_confirm: '<?= _t('ocr_confirm') ?>', 
     ocr_complete: '<?= _t('ocr_complete') ?>', 
     error_zone_not_found: '<?= _t('error_zone_not_found') ?>', 
@@ -319,9 +332,7 @@ const LANG = {
     select_user: '<?= _t('select_user') ?>', 
     notification_sent: '<?= _t('notification_sent') ?>', 
     entire_document: '<?= _t('entire_document') ?>', 
-    sync_updated: '<?= _t('sync_updated') ?>',
-    sync_deleted: '<?= _t('sync_deleted') ?>',
-    delete_document_confirm: '<?= _t('delete_document_confirm') ?>'
+    sync_updated: '<?= _t('sync_updated') ?>' 
 };
 
 let pdfDoc = null, currentPage = 1, totalPages = 0, scale = 1.5, renderScale = window.devicePixelRatio || 2;
@@ -331,198 +342,38 @@ let isDrawing = false, startPoint = null, currentRect = null, pendingZoneData = 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // ==========================================
-// FONCTIONS SIDEBAR ZONES
-// ==========================================
-function highlightSidebarZone(zoneId) { 
-    document.querySelectorAll('.zone-item.highlighted').forEach(el => el.classList.remove('highlighted')); 
-    const item = document.querySelector(`.zone-item[data-zone-id="${zoneId}"]`); 
-    if (item) { item.classList.add('highlighted'); item.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } 
-}
-
-function unhighlightSidebarZone(zoneId) { 
-    const item = document.querySelector(`.zone-item[data-zone-id="${zoneId}"]`); 
-    if (item && !item.classList.contains('active')) item.classList.remove('highlighted'); 
-}
-
-function flashCanvasZone(zoneId) { 
-    if (!fabricCanvas) return; 
-    fabricCanvas.getObjects().forEach(obj => { 
-        if (obj.data && String(obj.data.zoneId) === String(zoneId)) { 
-            let count = 0; 
-            const baseFill = obj.fill; 
-            const interval = setInterval(() => { 
-                if (count >= 6) { clearInterval(interval); obj.set({ fill: baseFill, strokeWidth: 2 }); fabricCanvas.renderAll(); return; } 
-                obj.set(count % 2 === 0 ? { fill: baseFill.replace('0.15', '0.6'), strokeWidth: 5 } : { fill: baseFill, strokeWidth: 2 }); 
-                fabricCanvas.renderAll(); 
-                count++; 
-            }, 150); 
-        } 
-    }); 
-}
-
-function initZoneSyncEvents() { 
-    document.querySelectorAll('.zone-item').forEach(item => { 
-        const zoneId = item.dataset.zoneId; 
-        item.addEventListener('mouseenter', () => item.classList.add('highlighted')); 
-        item.addEventListener('mouseleave', () => { if (!item.classList.contains('active')) item.classList.remove('highlighted'); }); 
-        item.addEventListener('click', (e) => { 
-            if (e.target.closest('.zone-actions')) return; 
-            document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active')); 
-            item.classList.add('active'); 
-            const zone = zones.find(z => String(z.id) === zoneId); 
-            if (!zone) return; 
-            if (parseInt(zone.page_number) !== currentPage) { 
-                currentPage = parseInt(zone.page_number); 
-                document.getElementById('pageInput').value = currentPage; 
-                renderPage(currentPage).then(() => setTimeout(() => flashCanvasZone(zoneId), 150)); 
-            } else { 
-                flashCanvasZone(zoneId); 
-            } 
-        }); 
-    }); 
-}
-
-// ==========================================
 // FONCTIONS PDF VIEWER
 // ==========================================
-async function loadPDF() { 
-    try { 
-        pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise; 
-        totalPages = pdfDoc.numPages; 
-        document.getElementById('pageCount').textContent = totalPages; 
-        document.getElementById('pageInput').max = totalPages; 
-        document.getElementById('pdfLoading').style.display = 'none'; 
-        await renderPage(currentPage); 
-        initZoneSyncEvents(); 
-        startRealTimeSync(); 
-    } catch (e) { 
-        console.error(e); 
-        document.getElementById('pdfLoading').innerHTML = '<span class="error">Erreur chargement PDF</span>'; 
-    } 
-}
 
-async function renderPage(pageNum) { 
-    const page = await pdfDoc.getPage(pageNum); 
-    const canvas = document.getElementById('pdfCanvas'); 
-    const ctx = canvas.getContext('2d'); 
-    const viewport = page.getViewport({ scale }); 
-    canvas.width = Math.floor(viewport.width * renderScale); 
-    canvas.height = Math.floor(viewport.height * renderScale); 
-    canvas.style.width = Math.floor(viewport.width) + 'px'; 
-    canvas.style.height = Math.floor(viewport.height) + 'px'; 
-    await page.render({ canvasContext: ctx, viewport, transform: [renderScale, 0, 0, renderScale, 0, 0] }).promise; 
-    initFabricCanvas(); 
-    updateNavButtons(); 
-}
+function highlightSidebarZone(zoneId) { document.querySelectorAll('.zone-item.highlighted').forEach(el => el.classList.remove('highlighted')); const item = document.querySelector(`.zone-item[data-zone-id="${zoneId}"]`); if (item) { item.classList.add('highlighted'); item.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } }
+function unhighlightSidebarZone(zoneId) { const item = document.querySelector(`.zone-item[data-zone-id="${zoneId}"]`); if (item && !item.classList.contains('active')) item.classList.remove('highlighted'); }
+function flashCanvasZone(zoneId) { if (!fabricCanvas) return; fabricCanvas.getObjects().forEach(obj => { if (obj.data && String(obj.data.zoneId) === String(zoneId)) { let count = 0; const baseFill = obj.fill; const interval = setInterval(() => { if (count >= 6) { clearInterval(interval); obj.set({ fill: baseFill, strokeWidth: 2 }); fabricCanvas.renderAll(); return; } obj.set(count % 2 === 0 ? { fill: baseFill.replace('0.15', '0.6'), strokeWidth: 5 } : { fill: baseFill, strokeWidth: 2 }); fabricCanvas.renderAll(); count++; }, 150); } }); }
 
-function initFabricCanvas() { 
-    const c = document.getElementById('pdfCanvas'), o = document.getElementById('overlayCanvas'); 
-    const w = parseInt(c.style.width), h = parseInt(c.style.height); 
-    o.width = w; o.height = h; o.style.width = w + 'px'; o.style.height = h + 'px'; 
-    if (fabricCanvas) fabricCanvas.dispose(); 
-    fabricCanvas = new fabric.Canvas('overlayCanvas', { selection: false }); 
-    fabricCanvas.on('mouse:down', onMouseDown); 
-    fabricCanvas.on('mouse:move', onMouseMove); 
-    fabricCanvas.on('mouse:up', onMouseUp); 
-    renderZones(); 
-}
+function initZoneSyncEvents() { document.querySelectorAll('.zone-item').forEach(item => { const zoneId = item.dataset.zoneId, zonePage = parseInt(item.dataset.zonePage); item.addEventListener('mouseenter', () => item.classList.add('highlighted')); item.addEventListener('mouseleave', () => { if (!item.classList.contains('active')) item.classList.remove('highlighted'); }); item.addEventListener('click', (e) => { if (e.target.closest('.zone-actions')) return; document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active')); item.classList.add('active'); const zone = zones.find(z => String(z.id) === zoneId); if (!zone) return; if (parseInt(zone.page_number) !== currentPage) { currentPage = parseInt(zone.page_number); document.getElementById('pageInput').value = currentPage; renderPage(currentPage).then(() => setTimeout(() => flashCanvasZone(zoneId), 150)); } else flashCanvasZone(zoneId); }); }); }
 
-function renderZones() { 
-    if (!fabricCanvas) return; 
-    fabricCanvas.clear(); 
-    const c = document.getElementById('pdfCanvas'); 
-    const w = parseInt(c.style.width), h = parseInt(c.style.height); 
-    zones.filter(z => parseInt(z.page_number) === currentPage).forEach(zone => { 
-        const color = zone.color || '#10B981'; 
-        const r = parseInt(color.slice(1,3),16), g = parseInt(color.slice(3,5),16), b = parseInt(color.slice(5,7),16); 
-        const fill = `rgba(${r},${g},${b},0.15)`; 
-        const rect = new fabric.Rect({ 
-            left: (zone.x/100)*w, top: (zone.y/100)*h, width: (zone.width/100)*w, height: (zone.height/100)*h, 
-            fill, stroke: color, strokeWidth: 2, selectable: false, hoverCursor: 'pointer', data: { zoneId: zone.id, color } 
-        }); 
-        rect.on('mouseover', function() { highlightSidebarZone(zone.id); this.set({ strokeWidth: 4, fill: fill.replace('0.15','0.35') }); fabricCanvas.renderAll(); }); 
-        rect.on('mouseout', function() { unhighlightSidebarZone(zone.id); this.set({ strokeWidth: 2, fill }); fabricCanvas.renderAll(); }); 
-        rect.on('mousedown', function() { 
-            if (currentTool !== 'select') return; 
-            document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active')); 
-            const item = document.querySelector(`.zone-item[data-zone-id="${zone.id}"]`); 
-            if (item) { item.classList.add('active', 'flash'); item.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); setTimeout(() => item.classList.remove('flash'), 800); } 
-            flashCanvasZone(zone.id); 
-        }); 
-        fabricCanvas.add(rect); 
-    }); 
-    fabricCanvas.renderAll(); 
-}
+async function loadPDF() { try { pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise; totalPages = pdfDoc.numPages; document.getElementById('pageCount').textContent = totalPages; document.getElementById('pageInput').max = totalPages; document.getElementById('pdfLoading').style.display = 'none'; await renderPage(currentPage); initZoneSyncEvents(); startRealTimeSync(); } catch (e) { console.error(e); document.getElementById('pdfLoading').innerHTML = '<span class="error">Erreur chargement PDF</span>'; } }
 
-function onMouseDown(e) { 
-    if (currentTool !== 'zone') return; 
-    isDrawing = true; 
-    const p = fabricCanvas.getPointer(e.e); 
-    startPoint = { x: p.x, y: p.y }; 
-    currentRect = new fabric.Rect({ left: p.x, top: p.y, width: 0, height: 0, fill: 'rgba(59,130,246,0.3)', stroke: '#3B82F6', strokeWidth: 2, selectable: false, evented: false }); 
-    fabricCanvas.add(currentRect); 
-}
+async function renderPage(pageNum) { const page = await pdfDoc.getPage(pageNum); const canvas = document.getElementById('pdfCanvas'); const ctx = canvas.getContext('2d'); const viewport = page.getViewport({ scale }); canvas.width = Math.floor(viewport.width * renderScale); canvas.height = Math.floor(viewport.height * renderScale); canvas.style.width = Math.floor(viewport.width) + 'px'; canvas.style.height = Math.floor(viewport.height) + 'px'; await page.render({ canvasContext: ctx, viewport, transform: [renderScale, 0, 0, renderScale, 0, 0] }).promise; initFabricCanvas(); updateNavButtons(); }
 
-function onMouseMove(e) { 
-    if (!isDrawing || !currentRect) return; 
-    const p = fabricCanvas.getPointer(e.e); 
-    if (p.x < startPoint.x) currentRect.set({ left: p.x }); 
-    if (p.y < startPoint.y) currentRect.set({ top: p.y }); 
-    currentRect.set({ width: Math.abs(p.x - startPoint.x), height: Math.abs(p.y - startPoint.y) }); 
-    fabricCanvas.renderAll(); 
-}
+function initFabricCanvas() { const c = document.getElementById('pdfCanvas'), o = document.getElementById('overlayCanvas'); const w = parseInt(c.style.width), h = parseInt(c.style.height); o.width = w; o.height = h; o.style.width = w + 'px'; o.style.height = h + 'px'; if (fabricCanvas) fabricCanvas.dispose(); fabricCanvas = new fabric.Canvas('overlayCanvas', { selection: false }); fabricCanvas.on('mouse:down', onMouseDown); fabricCanvas.on('mouse:move', onMouseMove); fabricCanvas.on('mouse:up', onMouseUp); renderZones(); }
 
-function onMouseUp() { 
-    if (!isDrawing || !currentRect) return; 
-    isDrawing = false; 
-    if (currentRect.width < 10 || currentRect.height < 10) { fabricCanvas.remove(currentRect); currentRect = null; return; } 
-    const c = document.getElementById('pdfCanvas'); 
-    const w = parseInt(c.style.width), h = parseInt(c.style.height); 
-    pendingZoneData = { page_number: currentPage, x: (currentRect.left/w)*100, y: (currentRect.top/h)*100, width: (currentRect.width/w)*100, height: (currentRect.height/h)*100 }; 
-    extractTextFromZone(currentRect); 
-    openZoneModal(); 
-    fabricCanvas.remove(currentRect); 
-    currentRect = null; 
-}
+function renderZones() { if (!fabricCanvas) return; fabricCanvas.clear(); const c = document.getElementById('pdfCanvas'); const w = parseInt(c.style.width), h = parseInt(c.style.height); zones.filter(z => parseInt(z.page_number) === currentPage).forEach(zone => { const color = zone.color || '#10B981'; const r = parseInt(color.slice(1,3),16), g = parseInt(color.slice(3,5),16), b = parseInt(color.slice(5,7),16); const fill = `rgba(${r},${g},${b},0.15)`; const rect = new fabric.Rect({ left: (zone.x/100)*w, top: (zone.y/100)*h, width: (zone.width/100)*w, height: (zone.height/100)*h, fill, stroke: color, strokeWidth: 2, selectable: false, hoverCursor: 'pointer', data: { zoneId: zone.id, color } }); rect.on('mouseover', function() { highlightSidebarZone(zone.id); this.set({ strokeWidth: 4, fill: fill.replace('0.15','0.35') }); fabricCanvas.renderAll(); }); rect.on('mouseout', function() { unhighlightSidebarZone(zone.id); this.set({ strokeWidth: 2, fill }); fabricCanvas.renderAll(); }); rect.on('mousedown', function() { if (currentTool !== 'select') return; document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active')); const item = document.querySelector(`.zone-item[data-zone-id="${zone.id}"]`); if (item) { item.classList.add('active', 'flash'); item.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); setTimeout(() => item.classList.remove('flash'), 800); } flashCanvasZone(zone.id); }); fabricCanvas.add(rect); }); fabricCanvas.renderAll(); }
 
-async function extractTextFromZone(rect) { 
-    const c = document.getElementById('pdfCanvas'); 
-    const sx = c.width/parseInt(c.style.width), sy = c.height/parseInt(c.style.height); 
-    const temp = document.createElement('canvas'); 
-    temp.width = rect.width*sx*2; temp.height = rect.height*sy*2; 
-    temp.getContext('2d').drawImage(c, rect.left*sx, rect.top*sy, rect.width*sx, rect.height*sy, 0, 0, temp.width, temp.height); 
-    try { const r = await Tesseract.recognize(temp, 'fra'); document.getElementById('zoneText').value = r.data.text.trim(); } catch(e) { console.error(e); } 
-}
+function onMouseDown(e) { if (currentTool !== 'zone') return; isDrawing = true; const p = fabricCanvas.getPointer(e.e); startPoint = { x: p.x, y: p.y }; currentRect = new fabric.Rect({ left: p.x, top: p.y, width: 0, height: 0, fill: 'rgba(59,130,246,0.3)', stroke: '#3B82F6', strokeWidth: 2, selectable: false, evented: false }); fabricCanvas.add(currentRect); }
+function onMouseMove(e) { if (!isDrawing || !currentRect) return; const p = fabricCanvas.getPointer(e.e); if (p.x < startPoint.x) currentRect.set({ left: p.x }); if (p.y < startPoint.y) currentRect.set({ top: p.y }); currentRect.set({ width: Math.abs(p.x - startPoint.x), height: Math.abs(p.y - startPoint.y) }); fabricCanvas.renderAll(); }
+function onMouseUp() { if (!isDrawing || !currentRect) return; isDrawing = false; if (currentRect.width < 10 || currentRect.height < 10) { fabricCanvas.remove(currentRect); currentRect = null; return; } const c = document.getElementById('pdfCanvas'); const w = parseInt(c.style.width), h = parseInt(c.style.height); pendingZoneData = { page_number: currentPage, x: (currentRect.left/w)*100, y: (currentRect.top/h)*100, width: (currentRect.width/w)*100, height: (currentRect.height/h)*100 }; extractTextFromZone(currentRect); openZoneModal(); fabricCanvas.remove(currentRect); currentRect = null; }
 
-// Navigation
+async function extractTextFromZone(rect) { const c = document.getElementById('pdfCanvas'); const sx = c.width/parseInt(c.style.width), sy = c.height/parseInt(c.style.height); const temp = document.createElement('canvas'); temp.width = rect.width*sx*2; temp.height = rect.height*sy*2; temp.getContext('2d').drawImage(c, rect.left*sx, rect.top*sy, rect.width*sx, rect.height*sy, 0, 0, temp.width, temp.height); try { const r = await Tesseract.recognize(temp, 'fra'); document.getElementById('zoneText').value = r.data.text.trim(); } catch(e) { console.error(e); } }
+
 function previousPage() { if (currentPage > 1) { currentPage--; document.getElementById('pageInput').value = currentPage; renderPage(currentPage); } }
 function nextPage() { if (currentPage < totalPages) { currentPage++; document.getElementById('pageInput').value = currentPage; renderPage(currentPage); } }
 function updateNavButtons() { document.getElementById('prevBtn').disabled = currentPage === 1; document.getElementById('nextBtn').disabled = currentPage === totalPages; }
 document.getElementById('pageInput').addEventListener('change', function() { let p = parseInt(this.value); if (p >= 1 && p <= totalPages) { currentPage = p; renderPage(p); } else this.value = currentPage; });
-
-// Zoom
 function zoomIn() { scale = Math.min(scale + 0.25, 3); renderPage(currentPage); document.getElementById('zoomLevel').textContent = Math.round(scale*100)+'%'; }
 function zoomOut() { scale = Math.max(scale - 0.25, 0.5); renderPage(currentPage); document.getElementById('zoomLevel').textContent = Math.round(scale*100)+'%'; }
 function fitToWidth() { scale = 1; renderPage(currentPage); document.getElementById('zoomLevel').textContent = '100%'; }
-
-// Outils
-function setTool(tool) { 
-    currentTool = tool; 
-    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); 
-    document.querySelector(`[data-tool="${tool}"]`).classList.add('active'); 
-    document.getElementById('pdfContainer').style.cursor = tool === 'zone' ? 'crosshair' : 'default'; 
-    if (fabricCanvas) { fabricCanvas.defaultCursor = tool === 'zone' ? 'crosshair' : 'default'; fabricCanvas.hoverCursor = tool === 'zone' ? 'crosshair' : 'pointer'; } 
-}
-
-// Tabs
-function showTab(id) { 
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); 
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); 
-    document.querySelector(`[data-tab="${id}"]`).classList.add('active'); 
-    document.getElementById('tab-' + id).classList.add('active'); 
-}
-
-// Modales
+function setTool(tool) { currentTool = tool; document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); document.querySelector(`[data-tool="${tool}"]`).classList.add('active'); document.getElementById('pdfContainer').style.cursor = tool === 'zone' ? 'crosshair' : 'default'; if (fabricCanvas) { fabricCanvas.defaultCursor = tool === 'zone' ? 'crosshair' : 'default'; fabricCanvas.hoverCursor = tool === 'zone' ? 'crosshair' : 'pointer'; } }
+function showTab(id) { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.querySelector(`[data-tab="${id}"]`).classList.add('active'); document.getElementById('tab-' + id).classList.add('active'); }
 function setZoneColor(c) { document.getElementById('zoneColor').value = c; }
 function setEditZoneColor(c) { document.getElementById('editZoneColor').value = c; }
 function openZoneModal() { document.getElementById('zoneModal').classList.add('open'); }
@@ -533,321 +384,122 @@ function openAnnotationModal() { document.getElementById('annotationModal').clas
 function closeAnnotationModal() { document.getElementById('annotationModal').classList.remove('open'); document.getElementById('annotationContent').value = ''; }
 function closeEditZoneModal() { document.getElementById('editZoneModal').classList.remove('open'); }
 
-// CRUD Zones
-async function openEditZoneModal(id) { 
-    try { 
-        const r = await fetch(`/api/zones/${id}`).then(r => r.json()); 
-        if (!r.success) return alert(LANG.error_zone_not_found); 
-        const z = r.zone; 
-        document.getElementById('editZoneId').value = z.id; 
-        document.getElementById('editZoneLabel').value = z.label || ''; 
-        document.getElementById('editZoneColor').value = z.color || '#10B981'; 
-        document.getElementById('editZoneType').value = z.zone_type || 'custom'; 
-        document.getElementById('editZoneDescription').value = z.description || ''; 
-        document.getElementById('editZoneText').value = z.extracted_text || ''; 
-        document.getElementById('editZoneModal').classList.add('open'); 
-    } catch(e) { console.error(e); } 
-}
+async function openEditZoneModal(id) { try { const r = await fetch(`/api/zones/${id}`).then(r => r.json()); if (!r.success) return alert(LANG.error_zone_not_found); const z = r.zone; document.getElementById('editZoneId').value = z.id; document.getElementById('editZoneLabel').value = z.label || ''; document.getElementById('editZoneColor').value = z.color || '#10B981'; document.getElementById('editZoneType').value = z.zone_type || 'custom'; document.getElementById('editZoneDescription').value = z.description || ''; document.getElementById('editZoneText').value = z.extracted_text || ''; document.getElementById('editZoneModal').classList.add('open'); } catch(e) { console.error(e); } }
 
-async function saveZone() { 
-    if (!pendingZoneData) return; 
-    const data = { document_id: DOCUMENT_ID, ...pendingZoneData, label: document.getElementById('zoneLabel').value, zone_type: document.getElementById('zoneType').value, color: document.getElementById('zoneColor').value, description: document.getElementById('zoneDescription').value, extracted_text: document.getElementById('zoneText').value }; 
-    const r = await fetch('/api/zones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()); 
-    if (r.success) { zones.push(r.zone); renderZones(); addZoneToSidebarSync(r.zone); closeZoneModal(); } 
-}
+async function saveZone() { if (!pendingZoneData) return; const data = { document_id: DOCUMENT_ID, ...pendingZoneData, label: document.getElementById('zoneLabel').value, zone_type: document.getElementById('zoneType').value, color: document.getElementById('zoneColor').value, description: document.getElementById('zoneDescription').value, extracted_text: document.getElementById('zoneText').value }; const r = await fetch('/api/zones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()); if (r.success) { zones.push(r.zone); renderZones(); addZoneToSidebarSync(r.zone); closeZoneModal(); } }
 
-async function updateZone() { 
-    const id = document.getElementById('editZoneId').value; 
-    const data = { label: document.getElementById('editZoneLabel').value, color: document.getElementById('editZoneColor').value, zone_type: document.getElementById('editZoneType').value, description: document.getElementById('editZoneDescription').value, extracted_text: document.getElementById('editZoneText').value }; 
-    const r = await fetch(`/api/zones/${id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()); 
-    if (r.success) { closeEditZoneModal(); location.reload(); } else alert(r.error || 'Error'); 
-}
+async function updateZone() { const id = document.getElementById('editZoneId').value; const data = { label: document.getElementById('editZoneLabel').value, color: document.getElementById('editZoneColor').value, zone_type: document.getElementById('editZoneType').value, description: document.getElementById('editZoneDescription').value, extracted_text: document.getElementById('editZoneText').value }; const r = await fetch(`/api/zones/${id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()); if (r.success) { closeEditZoneModal(); location.reload(); } else alert(r.error || 'Error'); }
 
-async function deleteZone(id) { 
-    if (!confirm(LANG.delete_zone_confirm)) return; 
-    await fetch(`/api/zones/${id}/delete`, { method: 'POST' }); 
-    zones = zones.filter(z => String(z.id) !== String(id)); 
-    renderZones(); 
-    document.querySelector(`[data-zone-id="${id}"]`)?.remove(); 
-    updateZonesBadge(); 
-}
+async function deleteZone(id) { if (!confirm(LANG.delete_zone_confirm)) return; await fetch(`/api/zones/${id}/delete`, { method: 'POST' }); zones = zones.filter(z => String(z.id) !== String(id)); renderZones(); document.querySelector(`[data-zone-id="${id}"]`)?.remove(); updateZonesBadge(); }
 
-// Links
 function createLinkFromZone(id) { document.getElementById('linkSourceZoneId').value = id; openLinkModal(); }
 
-async function loadTargetZones() { 
-    const docId = document.getElementById('linkTargetDocument').value; 
-    const grp = document.getElementById('targetZoneGroup'), sel = document.getElementById('linkTargetZone'); 
-    if (!docId) { grp.style.display = 'none'; return; } 
-    const r = await fetch(`/api/documents/${docId}/zones`).then(r => r.json()); 
-    sel.innerHTML = `<option value="">${LANG.entire_document}</option>`; 
-    if (r.zones?.length) { r.zones.forEach(z => sel.innerHTML += `<option value="${z.id}">${z.label || LANG.zone + ' ' + z.id}</option>`); grp.style.display = 'block'; } 
+async function loadTargetZones() { const docId = document.getElementById('linkTargetDocument').value; const grp = document.getElementById('targetZoneGroup'), sel = document.getElementById('linkTargetZone'); if (!docId) { grp.style.display = 'none'; return; } const r = await fetch(`/api/documents/${docId}/zones`).then(r => r.json()); sel.innerHTML = `<option value="">${LANG.entire_document}</option>`; if (r.zones?.length) { r.zones.forEach(z => sel.innerHTML += `<option value="${z.id}">${z.label || LANG.zone + ' ' + z.id}</option>`); grp.style.display = 'block'; } }
+
+async function createLink() { const data = { source_zone_id: document.getElementById('linkSourceZoneId').value, target_document_id: document.getElementById('linkTargetDocument').value, target_zone_id: document.getElementById('linkTargetZone').value || null, link_type: document.getElementById('linkType').value, description: document.getElementById('linkDescription').value }; if (!data.target_document_id) return alert(LANG.select_document); const r = await fetch('/api/links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()); if (r.success) { closeLinkModal(); location.reload(); } else alert(r.error || 'Error'); }
+
+// ==========================================
+// SUPPRESSION DE LIAISON
+// ==========================================
+async function deleteLink(linkId) {
+    if (!confirm(LANG.delete_link_confirm)) return;
+    
+    try {
+        const response = await fetch(`/api/links/${linkId}/delete`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            // Supprimer l'élément du DOM
+            const linkElement = document.querySelector(`[data-link-id="${linkId}"]`);
+            if (linkElement) {
+                linkElement.remove();
+            }
+            // Mettre à jour le badge
+            updateLinksBadge();
+        } else {
+            alert(data.error || 'Error');
+        }
+    } catch (e) {
+        console.error('Erreur suppression liaison:', e);
+        alert('Erreur lors de la suppression');
+    }
 }
 
-async function createLink() { 
-    const data = { source_zone_id: document.getElementById('linkSourceZoneId').value, target_document_id: document.getElementById('linkTargetDocument').value, target_zone_id: document.getElementById('linkTargetZone').value || null, link_type: document.getElementById('linkType').value, description: document.getElementById('linkDescription').value }; 
-    if (!data.target_document_id) return alert(LANG.select_document); 
-    const r = await fetch('/api/links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()); 
-    if (r.success) { closeLinkModal(); location.reload(); } else alert(r.error || 'Error'); 
+function updateLinksBadge() {
+    const badge = document.getElementById('linksBadge');
+    if (badge) {
+        const count = document.querySelectorAll('.link-item-detailed').length;
+        badge.textContent = count;
+    }
 }
 
-// Annotations
-async function createAnnotation() { 
-    const content = document.getElementById('annotationContent').value; 
-    if (!content.trim()) return alert(LANG.content_required); 
-    const data = { document_id: DOCUMENT_ID, zone_id: document.getElementById('annotationZone').value || null, annotation_type: document.getElementById('annotationType').value, content }; 
-    const r = await fetch('/api/annotations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()); 
-    if (r.success) { closeAnnotationModal(); location.reload(); } 
-}
+async function createAnnotation() { const content = document.getElementById('annotationContent').value; if (!content.trim()) return alert(LANG.content_required); const data = { document_id: DOCUMENT_ID, zone_id: document.getElementById('annotationZone').value || null, annotation_type: document.getElementById('annotationType').value, content }; const r = await fetch('/api/annotations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()); if (r.success) { closeAnnotationModal(); location.reload(); } }
 
-async function resolveAnnotation(id) { 
-    await fetch(`/api/annotations/${id}/resolve`, { method: 'POST' }); 
-    document.querySelector(`[data-annotation-id="${id}"]`)?.classList.add('resolved'); 
-}
+async function resolveAnnotation(id) { await fetch(`/api/annotations/${id}/resolve`, { method: 'POST' }); document.querySelector(`[data-annotation-id="${id}"]`)?.classList.add('resolved'); }
 
-function focusZone(zoneId) { 
-    const zone = zones.find(z => String(z.id) === String(zoneId)); 
-    if (!zone) return; 
-    document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active')); 
-    document.querySelector(`.zone-item[data-zone-id="${zoneId}"]`)?.classList.add('active'); 
-    if (parseInt(zone.page_number) !== currentPage) { 
-        currentPage = parseInt(zone.page_number); 
-        document.getElementById('pageInput').value = currentPage; 
-        renderPage(currentPage).then(() => setTimeout(() => flashCanvasZone(zoneId), 100)); 
-    } else { flashCanvasZone(zoneId); } 
-}
+function focusZone(zoneId) { const zone = zones.find(z => String(z.id) === String(zoneId)); if (!zone) return; document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active')); document.querySelector(`.zone-item[data-zone-id="${zoneId}"]`)?.classList.add('active'); if (parseInt(zone.page_number) !== currentPage) { currentPage = parseInt(zone.page_number); document.getElementById('pageInput').value = currentPage; renderPage(currentPage).then(() => setTimeout(() => flashCanvasZone(zoneId), 100)); } else flashCanvasZone(zoneId); }
 
-// OCR
-async function toggleOCR() { 
-    if (!confirm(LANG.ocr_confirm)) return; 
-    for (let i = 1; i <= totalPages; i++) { 
-        const page = await pdfDoc.getPage(i); 
-        const vp = page.getViewport({ scale: 2 }); 
-        const c = document.createElement('canvas'); 
-        c.width = vp.width; c.height = vp.height; 
-        await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise; 
-        const r = await Tesseract.recognize(c, 'fra'); 
-        await fetch('/api/documents/content', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ document_id: DOCUMENT_ID, page_number: i, content: r.data.text }) }); 
-    } 
-    alert(LANG.ocr_complete); 
-}
+async function toggleOCR() { if (!confirm(LANG.ocr_confirm)) return; for (let i = 1; i <= totalPages; i++) { const page = await pdfDoc.getPage(i); const vp = page.getViewport({ scale: 2 }); const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height; await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise; const r = await Tesseract.recognize(c, 'fra'); await fetch('/api/documents/content', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ document_id: DOCUMENT_ID, page_number: i, content: r.data.text }) }); } alert(LANG.ocr_complete); }
 
-// Mentions
 function mentionUserOnZone(id, name) { document.getElementById('mentionZoneId').value = id; document.getElementById('mentionZoneName').value = name; document.getElementById('mentionModal').classList.add('open'); }
 function closeMentionModal() { document.getElementById('mentionModal').classList.remove('open'); }
-async function sendMention() { 
-    const userId = document.getElementById('mentionUserId').value; 
-    if (!userId) return alert(LANG.select_user); 
-    const r = await fetch('/api/notifications/mention', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, zone_id: document.getElementById('mentionZoneId').value, document_id: DOCUMENT_ID, message: document.getElementById('mentionMessage').value }) }).then(r => r.json()); 
-    if (r.success) { closeMentionModal(); alert(LANG.notification_sent); } else alert(r.error || 'Error'); 
-}
+async function sendMention() { const userId = document.getElementById('mentionUserId').value; if (!userId) return alert(LANG.select_user); const r = await fetch('/api/notifications/mention', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, zone_id: document.getElementById('mentionZoneId').value, document_id: DOCUMENT_ID, message: document.getElementById('mentionMessage').value }) }).then(r => r.json()); if (r.success) { closeMentionModal(); alert(LANG.notification_sent); } else alert(r.error || 'Error'); }
 
 // ==========================================
 // SYNCHRONISATION TEMPS RÉEL
 // ==========================================
 const SYNC_INTERVAL = 5000;
 const VIEWERS_INTERVAL = 10000;
-// Initialiser avec l'heure MySQL (pas PHP) pour éviter les décalages de timezone
-// On utilise une requête SQL pour obtenir NOW() de MySQL
-let lastSyncTimestamp = '<?php 
-    try { 
-        $stmt = db()->query("SELECT NOW() as now"); 
-        echo $stmt->fetch()["now"]; 
-    } catch(Exception $e) { 
-        echo date("Y-m-d H:i:s"); 
-    } 
-?>';
+let lastSyncTimestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
 let syncTimer = null, viewersTimer = null, isSyncActive = true;
 
 async function pollSyncUpdates() {
     if (!isSyncActive) return;
     try {
-        // Collecter les IDs des zones et annotations connues
-        const zoneIds = zones.map(z => z.id).join(',');
-        const annotationIds = Array.from(document.querySelectorAll('[data-annotation-id]'))
-            .map(el => el.dataset.annotationId).join(',');
-        
-        // Construire l'URL avec les IDs connus pour détecter les suppressions
-        let url = `/api/documents/sync?document_id=${DOCUMENT_ID}&since=${encodeURIComponent(lastSyncTimestamp)}`;
-        if (zoneIds) url += `&zone_ids=${zoneIds}`;
-        if (annotationIds) url += `&annotation_ids=${annotationIds}`;
-        
-        const response = await fetch(url);
+        const response = await fetch(`/api/documents/sync?document_id=${DOCUMENT_ID}&since=${encodeURIComponent(lastSyncTimestamp)}`);
         const data = await response.json();
         if (data.success) {
             lastSyncTimestamp = data.timestamp;
-            if (data.has_updates) { 
-                console.log('[Sync] Mises à jour reçues:', data.updates);
-                processSyncUpdates(data.updates); 
-            }
+            if (data.has_updates) { processSyncUpdates(data.updates); }
         }
     } catch (e) { console.error('[Sync]', e); }
 }
 
 function processSyncUpdates(updates) {
     let hasNew = false;
-    let hasDeleted = false;
-    
-    // ==========================================
-    // TRAITER LES NOUVELLES ZONES
-    // ==========================================
-    if (updates.zones && updates.zones.length > 0) {
+    if (updates.zones?.length) {
         updates.zones.forEach(zone => {
-            // Vérifier si la zone existe déjà
-            const exists = zones.find(z => z.id == zone.id);
-            if (!exists) {
-                const newZone = { 
-                    id: zone.id, 
-                    document_id: DOCUMENT_ID, 
-                    page_number: zone.page_number || zone.page || 1, 
-                    x: parseFloat(zone.x), 
-                    y: parseFloat(zone.y), 
-                    width: parseFloat(zone.width), 
-                    height: parseFloat(zone.height), 
-                    label: zone.label || zone.name || '', 
-                    color: zone.color || '#10B981', 
-                    zone_type: zone.zone_type || 'custom', 
-                    description: zone.description || '', 
-                    extracted_text: zone.extracted_text || '' 
-                };
+            if (!zones.find(z => z.id == zone.id)) {
+                const newZone = { id: zone.id, document_id: DOCUMENT_ID, page_number: zone.page_number || zone.page, x: zone.x, y: zone.y, width: zone.width, height: zone.height, label: zone.label || zone.name || '', color: zone.color || '#10B981', zone_type: zone.zone_type || 'custom', description: zone.description || '', extracted_text: zone.extracted_text || '' };
                 zones.push(newZone);
                 addZoneToSidebarSync(newZone, zone.created_by);
                 hasNew = true;
             }
         });
-        
-        // Re-dessiner les zones si on a des nouveautés
-        if (hasNew) {
-            renderZones();
-        }
+        if (hasNew) renderZones();
     }
-    
-    // ==========================================
-    // TRAITER LES ZONES SUPPRIMÉES
-    // ==========================================
-    if (updates.deleted_zones && updates.deleted_zones.length > 0) {
-        updates.deleted_zones.forEach(zoneId => {
-            console.log('[Sync] Zone supprimée par un autre utilisateur:', zoneId);
-            
-            // Supprimer de l'array zones
-            const index = zones.findIndex(z => z.id == zoneId);
-            if (index > -1) {
-                zones.splice(index, 1);
-            }
-            
-            // Supprimer de la sidebar
-            const sidebarItem = document.querySelector(`[data-zone-id="${zoneId}"]`);
-            if (sidebarItem) {
-                sidebarItem.classList.add('sync-deleted');
-                setTimeout(() => sidebarItem.remove(), 300);
-            }
-            
-            hasDeleted = true;
-        });
-        
-        // Re-dessiner les zones après suppression
-        if (hasDeleted) {
-            renderZones();
-        }
-    }
-    
-    // ==========================================
-    // TRAITER LES NOUVELLES ANNOTATIONS
-    // ==========================================
-    if (updates.annotations && updates.annotations.length > 0) {
+    if (updates.annotations?.length) {
         updates.annotations.forEach(ann => {
-            if (!document.querySelector(`[data-annotation-id="${ann.id}"]`)) { 
-                addAnnotationToSidebarSync(ann); 
-                hasNew = true; 
-            }
+            if (!document.querySelector(`[data-annotation-id="${ann.id}"]`)) { addAnnotationToSidebarSync(ann); hasNew = true; }
         });
     }
-    
-    // ==========================================
-    // TRAITER LES ANNOTATIONS SUPPRIMÉES
-    // ==========================================
-    if (updates.deleted_annotations && updates.deleted_annotations.length > 0) {
-        updates.deleted_annotations.forEach(annId => {
-            console.log('[Sync] Annotation supprimée par un autre utilisateur:', annId);
-            
-            const annItem = document.querySelector(`[data-annotation-id="${annId}"]`);
-            if (annItem) {
-                annItem.classList.add('sync-deleted');
-                setTimeout(() => annItem.remove(), 300);
-            }
-            
-            hasDeleted = true;
-        });
-    }
-    
-    // ==========================================
-    // AFFICHER NOTIFICATION
-    // ==========================================
-    if (hasNew) {
-        showSyncNotification(LANG.sync_updated);
-    }
-    if (hasDeleted) {
-        showSyncNotification(LANG.sync_deleted || 'Element deleted by a collaborator');
-    }
+    if (hasNew) showSyncNotification(LANG.sync_updated);
 }
 
 function addZoneToSidebarSync(zone, createdBy) {
     const list = document.getElementById('zonesList');
     if (!list) return;
-    
-    // Supprimer l'état vide
-    const emptyState = list.querySelector('.empty-state');
-    if (emptyState) emptyState.remove();
-    
-    // Vérifier si existe déjà
+    list.querySelector('.empty-state')?.remove();
     if (list.querySelector(`[data-zone-id="${zone.id}"]`)) return;
-    
     const label = zone.label || LANG.zone + ' ' + zone.id;
     const color = zone.color || '#10B981';
-    const pageNum = zone.page_number || 1;
-    
-    // Préparer le texte à afficher (description ou texte extrait)
-    let textContent = '';
-    if (zone.description && zone.description.trim()) {
-        textContent = `<div class="zone-description">${escapeHtml(zone.description.substring(0, 80))}...</div>`;
-    } else if (zone.extracted_text && zone.extracted_text.trim()) {
-        textContent = `<div class="zone-text">${escapeHtml(zone.extracted_text.substring(0, 100))}...</div>`;
-    }
-    
     const div = document.createElement('div');
     div.className = 'zone-item sync-new';
     div.setAttribute('data-zone-id', zone.id);
-    div.setAttribute('data-zone-page', pageNum);
+    div.setAttribute('data-zone-page', zone.page_number || 1);
     div.style.borderLeft = `4px solid ${color}`;
-    
-    div.innerHTML = `
-        <div class="zone-header">
-            <span class="zone-label">${escapeHtml(label)}</span>
-            <span class="zone-page">P.${pageNum}</span>
-        </div>
-        ${textContent}
-        <div class="zone-actions">
-            <button onclick="event.stopPropagation(); openEditZoneModal(${zone.id})" title="Modifier"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-            <button onclick="event.stopPropagation(); createLinkFromZone(${zone.id})" title="Liaison"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
-            <button onclick="event.stopPropagation(); mentionUserOnZone(${zone.id}, '${escapeHtml(label)}')" title="Mentionner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg></button>
-            <button onclick="event.stopPropagation(); deleteZone(${zone.id})" title="Supprimer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
-        </div>
-    `;
-    
-    // Ajouter événements click
-    div.addEventListener('click', (e) => { 
-        if (e.target.closest('.zone-actions')) return; 
-        document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active')); 
-        div.classList.add('active'); 
-        if (parseInt(zone.page_number) !== currentPage) { 
-            currentPage = parseInt(zone.page_number); 
-            document.getElementById('pageInput').value = currentPage; 
-            renderPage(currentPage).then(() => setTimeout(() => flashCanvasZone(zone.id), 100)); 
-        } else { 
-            flashCanvasZone(zone.id); 
-        } 
-    });
-    
+    div.innerHTML = `<div class="zone-header"><span class="zone-label">${escapeHtml(label)}</span><span class="zone-page">P.${zone.page_number || 1}</span></div>${zone.description ? `<div class="zone-description">${escapeHtml(zone.description.substring(0, 80))}</div>` : ''}<div class="zone-actions"><button onclick="event.stopPropagation(); openEditZoneModal(${zone.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button onclick="event.stopPropagation(); createLinkFromZone(${zone.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button><button onclick="event.stopPropagation(); deleteZone(${zone.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>`;
+    div.addEventListener('click', (e) => { if (e.target.closest('.zone-actions')) return; document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active')); div.classList.add('active'); if (parseInt(zone.page_number) !== currentPage) { currentPage = parseInt(zone.page_number); document.getElementById('pageInput').value = currentPage; renderPage(currentPage).then(() => setTimeout(() => flashCanvasZone(zone.id), 100)); } else flashCanvasZone(zone.id); });
     list.insertBefore(div, list.firstChild);
     updateZonesBadge();
 }
@@ -855,30 +507,16 @@ function addZoneToSidebarSync(zone, createdBy) {
 function addAnnotationToSidebarSync(ann) {
     const list = document.getElementById('annotationsList');
     if (!list) return;
-    
-    const emptyState = list.querySelector('.empty-state');
-    if (emptyState) emptyState.remove();
-    
+    list.querySelector('.empty-state')?.remove();
     if (list.querySelector(`[data-annotation-id="${ann.id}"]`)) return;
-    
     const div = document.createElement('div');
     div.className = 'annotation-item sync-new';
     div.setAttribute('data-annotation-id', ann.id);
-    div.innerHTML = `
-        <div class="annotation-header">
-            <span>${escapeHtml(ann.user_name || 'Utilisateur')}</span>
-            <span class="badge">${ann.annotation_type || 'note'}</span>
-        </div>
-        <div class="annotation-content">${escapeHtml(ann.content || '')}</div>
-        <div class="annotation-footer"><span>À l'instant</span></div>
-    `;
+    div.innerHTML = `<div class="annotation-header"><span>${escapeHtml(ann.user_name || 'User')}</span><span class="badge">${ann.annotation_type || 'note'}</span></div><div class="annotation-content">${escapeHtml(ann.content || '')}</div><div class="annotation-footer"><span>À l'instant</span></div>`;
     list.insertBefore(div, list.firstChild);
 }
 
-function updateZonesBadge() { 
-    const badge = document.getElementById('zonesBadge'); 
-    if (badge) badge.textContent = zones.length; 
-}
+function updateZonesBadge() { const badge = document.getElementById('zonesBadge'); if (badge) badge.textContent = zones.length; }
 
 async function pollViewers() {
     if (!isSyncActive) return;
@@ -891,85 +529,33 @@ async function pollViewers() {
 
 function updateViewersDisplay(viewers) {
     const container = document.getElementById('documentViewers');
-    if (!container) return;
-    
-    if (!viewers || viewers.length === 0) { 
-        container.innerHTML = ''; 
-        return; 
-    }
-    
-    const avatars = viewers.slice(0, 5).map(v => 
-        `<div class="viewer-avatar ${v.is_me ? 'is-me' : ''}" title="${escapeHtml(v.name)}${v.is_me ? ' (vous)' : ''}">${v.initials || '?'}</div>`
-    ).join('');
-    
-    container.innerHTML = `
-        <div class="viewers-avatars">${avatars}</div>
-        ${viewers.length > 1 ? `<span class="viewers-count">${viewers.length} en ligne</span>` : ''}
-    `;
+    if (!container || !viewers.length) { if(container) container.innerHTML = ''; return; }
+    const avatars = viewers.slice(0, 5).map(v => `<div class="viewer-avatar ${v.is_me ? 'is-me' : ''}" title="${escapeHtml(v.name)}${v.is_me ? ' (vous)' : ''}">${v.initials || '?'}</div>`).join('');
+    container.innerHTML = `<div class="viewers-avatars">${avatars}</div>${viewers.length > 1 ? `<span class="viewers-count">${viewers.length} en ligne</span>` : ''}`;
 }
 
 function showSyncNotification(msg) {
-    const old = document.querySelector('.sync-notification');
-    if (old) old.remove();
-    
+    document.querySelector('.sync-notification')?.remove();
     const n = document.createElement('div');
     n.className = 'sync-notification';
     n.innerHTML = `<div class="sync-dot"></div><span>${escapeHtml(msg)}</span>`;
     document.body.appendChild(n);
-    
-    setTimeout(() => { 
-        n.classList.add('hide'); 
-        setTimeout(() => n.remove(), 300); 
-    }, 4000);
+    setTimeout(() => { n.classList.add('hide'); setTimeout(() => n.remove(), 300); }, 4000);
 }
 
-function escapeHtml(t) { 
-    if (!t) return ''; 
-    const d = document.createElement('div'); 
-    d.textContent = t; 
-    return d.innerHTML; 
-}
+function escapeHtml(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
 function startRealTimeSync() {
     pollViewers();
     syncTimer = setInterval(pollSyncUpdates, SYNC_INTERVAL);
     viewersTimer = setInterval(pollViewers, VIEWERS_INTERVAL);
-    console.log('[Sync] ✅ Synchronisation temps réel activée pour document #' + DOCUMENT_ID);
+    console.log('[Sync] ✅ Synchronisation activée');
 }
 
-function stopRealTimeSync() { 
-    if (syncTimer) clearInterval(syncTimer); 
-    if (viewersTimer) clearInterval(viewersTimer); 
-}
+function stopRealTimeSync() { clearInterval(syncTimer); clearInterval(viewersTimer); }
 
-// Gestion visibilité onglet
-document.addEventListener('visibilitychange', () => { 
-    if (document.hidden) { 
-        isSyncActive = false; 
-        stopRealTimeSync(); 
-    } else { 
-        isSyncActive = true; 
-        startRealTimeSync(); 
-    } 
-});
-
-// Cleanup avant fermeture
-window.addEventListener('beforeunload', () => { 
-    stopRealTimeSync(); 
-    navigator.sendBeacon('/api/documents/leave', JSON.stringify({ document_id: DOCUMENT_ID })); 
-});
-
-// ==========================================
-// DÉMARRAGE
-// ==========================================
-// ==========================================
-// SUPPRESSION DU DOCUMENT
-// ==========================================
-function confirmDeleteDocument(docId) {
-    if (confirm(LANG.delete_document_confirm)) {
-        document.getElementById('deleteDocumentForm').submit();
-    }
-}
+document.addEventListener('visibilitychange', () => { if (document.hidden) { isSyncActive = false; stopRealTimeSync(); } else { isSyncActive = true; startRealTimeSync(); } });
+window.addEventListener('beforeunload', () => { stopRealTimeSync(); navigator.sendBeacon('/api/documents/leave', JSON.stringify({ document_id: DOCUMENT_ID })); });
 
 // ==========================================
 // DÉMARRAGE
